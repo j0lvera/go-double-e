@@ -1,0 +1,67 @@
+version: '3'
+
+dotenv: ['.env']
+
+vars:
+  DATABASE_URL:
+    sh: echo ${DATABASE_URL}
+  MIGRATIONS_DIR: database/migrations
+  GOOSE_DRIVER:
+    sh: echo ${GOOSE_DRIVER}
+
+tasks:
+  migrate:up:
+    desc: Run all pending migrations
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} up
+
+  migrate:down:
+    desc: Rollback last migration
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} down
+
+  migrate:status:
+    desc: Show migration status
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} status
+
+  migrate:create:
+    desc: Create a new migration file
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} create {{.CLI_ARGS}} sql
+
+  generate:
+    desc: Generate sqlc code
+    cmds:
+      - sqlc generate
+
+  dev:setup:
+    desc: Initial dev setup
+    deps: [migrate:up, generate]
+
+  dev:reset:
+    desc: Reset database and regenerate code
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.DATABASE_URL}}" reset
+      - task: dev:setup
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run linters
+    cmds:
+      - golangci-lint run
+
+  # Docker tasks if needed
+  docker:up:
+    desc: Start development database
+    cmds:
+      - docker compose up -d postgres
+
+  docker:down:
+    desc: Stop development database
+    cmds:
+      - docker compose down
