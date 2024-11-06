@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib" // This registers the pgx driver
+	_ "github.com/jackc/pgx/v5/stdlib" // registers the pgx driver
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -17,12 +17,9 @@ import (
 )
 
 func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
-	fmt.Println("SetupTestDB")
 	// get the project root to find migrations
 	_, b, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(b), "..", "..")
-	fmt.Println("projectRoot")
-	fmt.Println(projectRoot)
 
 	// setup postgres container
 	postgresContainer, err := postgres.Run(
@@ -34,9 +31,8 @@ func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(45*time.Second)),
+				WithStartupTimeout(5*time.Second)),
 	)
-
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to start container: %s", err)
 	}
@@ -44,13 +40,13 @@ func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 	// get connection details
 	mappedPort, err := postgresContainer.MappedPort(ctx, "5432")
 	if err != nil {
-		postgresContainer.Terminate(ctx)
+		_ = postgresContainer.Terminate(ctx)
 		return nil, nil, fmt.Errorf("failed to get mapped port: %s", err)
 	}
 
 	host, err := postgresContainer.Host(ctx)
 	if err != nil {
-		postgresContainer.Terminate(ctx)
+		_ = postgresContainer.Terminate(ctx)
 		return nil, nil, fmt.Errorf("failed to get host: %s", err)
 	}
 
@@ -59,22 +55,22 @@ func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		postgresContainer.Terminate(ctx)
+		_ = postgresContainer.Terminate(ctx)
 		return nil, nil, fmt.Errorf("failed to open DB for migrations: %w", err)
 	}
 
 	if err := db.Ping(); err != nil {
-		db.Close()
-		postgresContainer.Terminate(ctx)
+		_ = db.Close()
+		_ = postgresContainer.Terminate(ctx)
 		return nil, nil, fmt.Errorf("failed to ping DB: %w", err)
 	}
 
 	if err := goose.Up(db, filepath.Join(projectRoot, "internal/db/migrations")); err != nil {
-		db.Close()
-		postgresContainer.Terminate(ctx)
+		_ = db.Close()
+		_ = postgresContainer.Terminate(ctx)
 		return nil, nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
-	db.Close()
+	_ = db.Close()
 
 	// Create connection pool for actual usage
 	config, err := pgxpool.ParseConfig(dsn)
@@ -107,22 +103,4 @@ func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 	}
 
 	return pool, cleanup, nil
-
-	//pool, err := pgxpool.NewWithConfig(ctx, config)
-	//
-	//// run migrations
-	//sqlDB, _ := goose.OpenDBWithDriver("pgx", dsn)
-	//if err := goose.Up(sqlDB, filepath.Join(projectRoot, "internal/db/migrations")); err != nil {
-	//	return nil, nil, fmt.Errorf("failed to run migrations: %w", err)
-	//}
-	//sqlDB.Close()
-	//
-	//cleanup := func() {
-	//	pool.Close()
-	//	if err := testcontainers.TerminateContainer(postgresContainer); err != nil {
-	//		log.Printf("Failed to terminate container: %s", err)
-	//	}
-	//}
-	//
-	//return pool, cleanup, nil
 }
