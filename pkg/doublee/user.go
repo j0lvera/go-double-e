@@ -28,8 +28,3 @@ func (c *Client) CreateUser(ctx context.Context, email, password string) (db.Use
 
 	return user, nil
 }
-
-func GetUserById() error {
-	fmt.Println("CreateUser")
-	return nil
-}

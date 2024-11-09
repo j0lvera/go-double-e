@@ -2,50 +2,27 @@ package doublee
 
 import (
 	"context"
-	"fmt"
 	"github.com/j0lvera/go-double-e/internal/testutils"
 	"log"
 	"testing"
 )
 
-func TestDBCreation(t *testing.T) {
-	ctx := context.Background()
-	pool, cleanup, err := testutils.SetupTestDB(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer cleanup()
-
-	// Test the connection
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Database setup successful!")
-}
-
 func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 
 	// setup test database
-	pool, cleanup, err := testutils.SetupTestDB(ctx)
+	db, err := testutils.GetTestDB(ctx)
 	if err != nil {
-		t.Errorf("SetupTestDB() failed: %v", err)
+		t.Errorf("Failed to get test database: %v", err)
 	}
-	defer cleanup()
 
-	if pool == nil {
-		t.Fatalf("SetupTestDB() failed: got nil, want pool")
+	// Reset the database before running the test
+	if err := testutils.ResetTestData(ctx, db.Pool); err != nil {
+		t.Fatalf("Failed to reset test data: %v", err)
 	}
-	log.Println("Database pool created successfully")
-
-	// Test database connection
-	if err := pool.Ping(ctx); err != nil {
-		t.Fatalf("cannot ping database: %v", err)
-	}
-	log.Println("Database ping successful")
 
 	log.Println("Creating new client...")
-	client := NewClient(pool)
+	client := NewClient(db.Pool)
 	if client == nil {
 		t.Fatal("client is nil after creation")
 	}

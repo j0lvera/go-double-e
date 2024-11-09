@@ -13,8 +13,74 @@ import (
 	"log"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 )
+
+type TestDB struct {
+	Pool    *pgxpool.Pool
+	Cleanup func()
+}
+
+var (
+	testDB     *TestDB
+	setupOnce  sync.Once
+	setupError error
+)
+
+// GetTestDB returns a singleton database instance for testing.
+// The database is created only once and reused for subsequent calls.
+// Callers should ensure they call ResetTestData() between tests if needed.
+func GetTestDB(ctx context.Context) (*TestDB, error) {
+	setupOnce.Do(func() {
+		pool, cleanup, err := SetupTestDB(ctx)
+		if err != nil {
+			setupError = err
+			return
+		}
+
+		testDB = &TestDB{
+			Pool:    pool,
+			Cleanup: cleanup,
+		}
+	})
+
+	if setupError != nil {
+		return nil, fmt.Errorf("failed to setup test database: %w", setupError)
+	}
+
+	return testDB, nil
+}
+
+// ResetTestData truncates all tables in the test database.
+// Call this between tests to ensure test isolation.
+func ResetTestData(ctx context.Context, db *pgxpool.Pool) error {
+	// Get all table names
+	rows, err := db.Query(ctx, `
+		select tablename
+		from pg_catalog.pg_tables
+		where schemaname = 'public';
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to get table names: %w", err)
+	}
+	defer rows.Close()
+
+	// Truncate each table
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return fmt.Errorf("failed to scan table name: %w", err)
+		}
+
+		_, err := db.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s CASCADE", tableName))
+		if err != nil {
+			return fmt.Errorf("failed to truncate table %s: %w", tableName, err)
+		}
+	}
+
+	return rows.Err()
+}
 
 func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 	// get the project root to find migrations
