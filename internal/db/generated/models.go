@@ -108,6 +108,19 @@ type Account struct {
 	UserID    int64
 }
 
+type AccountBalance struct {
+	ID            int64
+	Uuid          string
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Balance       int64
+	AccountID     int64
+	EntryID       int64
+	TransactionID int64
+	LedgerID      int64
+	UserID        int64
+}
+
 type Entry struct {
 	ID            int64
 	Uuid          string
