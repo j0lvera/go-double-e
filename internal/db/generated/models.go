@@ -53,6 +53,48 @@ func (ns NullAccountType) Value() (driver.Value, error) {
 	return string(ns.AccountType), nil
 }
 
+type EntryDirection string
+
+const (
+	EntryDirectionDebit  EntryDirection = "debit"
+	EntryDirectionCredit EntryDirection = "credit"
+)
+
+func (e *EntryDirection) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntryDirection(s)
+	case string:
+		*e = EntryDirection(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntryDirection: %T", src)
+	}
+	return nil
+}
+
+type NullEntryDirection struct {
+	EntryDirection EntryDirection
+	Valid          bool // Valid is true if EntryDirection is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntryDirection) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntryDirection, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntryDirection.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntryDirection) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntryDirection), nil
+}
+
 type Account struct {
 	ID        int64
 	Uuid      string
@@ -64,6 +106,17 @@ type Account struct {
 	Metadata  []byte
 	LedgerID  int64
 	UserID    int64
+}
+
+type Entry struct {
+	ID            int64
+	Uuid          string
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Amount        int64
+	Direction     EntryDirection
+	TransactionID int64
+	AccountID     int64
 }
 
 type Ledger struct {
