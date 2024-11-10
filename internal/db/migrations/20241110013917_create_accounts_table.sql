@@ -32,4 +32,5 @@ execute procedure set_updated_at();
 -- +goose StatementBegin
 drop trigger ledger_updated_at on accounts;
 drop table accounts;
+drop type account_type;
 -- +goose StatementEnd

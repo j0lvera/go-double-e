@@ -10,10 +10,12 @@ import (
 
 type Querier interface {
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	GetAccount(ctx context.Context, id int64) (Account, error)
+	GetEntry(ctx context.Context, id int64) (Entry, error)
 	GetLedger(ctx context.Context, id int64) (Ledger, error)
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
 	GetUser(ctx context.Context, id int64) (User, error)
