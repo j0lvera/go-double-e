@@ -21,7 +21,7 @@ create table accounts
     unique (uuid)
 );
 
-create trigger ledger_updated_at
+create trigger account_updated_at
     before update
     on accounts
     for each row
@@ -30,7 +30,7 @@ execute procedure set_updated_at();
 
 -- +goose Down
 -- +goose StatementBegin
-drop trigger ledger_updated_at on accounts;
+drop trigger account_updated_at on accounts;
 drop table accounts;
 drop type account_type;
 -- +goose StatementEnd
