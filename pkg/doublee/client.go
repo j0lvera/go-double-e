@@ -6,6 +6,7 @@ import (
 )
 
 type Client struct {
+	// Make sqlc queries public so handlers can use it directly
 	queries *db.Queries
 }
 
