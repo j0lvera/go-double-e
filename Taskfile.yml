@@ -5,7 +5,7 @@ dotenv: ['.env']
 vars:
   DATABASE_URL:
     sh: echo ${DATABASE_URL}
-  MIGRATIONS_DIR: database/migrations
+  MIGRATIONS_DIR: internal/db/migrations
   GOOSE_DRIVER:
     sh: echo ${GOOSE_DRIVER}
 
