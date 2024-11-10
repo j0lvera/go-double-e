@@ -77,6 +77,17 @@ type Ledger struct {
 	UserID      int64
 }
 
+type Transaction struct {
+	ID          int64
+	Uuid        string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	Description pgtype.Text
+	Metadata    []byte
+	LedgerID    int64
+	UserID      int64
+}
+
 type User struct {
 	ID        int64
 	Uuid      string
