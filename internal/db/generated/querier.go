@@ -9,7 +9,9 @@ import (
 )
 
 type Querier interface {
+	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	GetLedger(ctx context.Context, id int64) (Ledger, error)
 	GetUser(ctx context.Context, id int64) (User, error)
 }
 

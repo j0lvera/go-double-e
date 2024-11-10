@@ -8,6 +8,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Ledger struct {
+	ID          int64
+	Uuid        string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	Name        string
+	Description pgtype.Text
+	Metadata    []byte
+	UserID      int64
+}
+
 type User struct {
 	ID        int64
 	Uuid      string
