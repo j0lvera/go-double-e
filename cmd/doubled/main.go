@@ -18,6 +18,7 @@ func run(ctx context.Context, w io.Writer) error {
 	config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
 	if err != nil {
 		_ = fmt.Errorf("error parsing database url: %w", err)
+		return err
 	}
 
 	// pool manual configuration
@@ -31,12 +32,14 @@ func run(ctx context.Context, w io.Writer) error {
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		_ = fmt.Errorf("error creating connection pool: %w", err)
+		return err
 	}
 	defer pool.Close()
 
 	// verify the connection
 	if err := pool.Ping(ctx); err != nil {
 		_ = fmt.Errorf("error pinging connection pool: %w", err)
+		return err
 	}
 
 	// initialize the client
