@@ -23,13 +23,13 @@ begin
         -- credit (liability): +amount
             select v_total_balance + (
                 case
-                    when (select type from accounts where id = (v_entry ->> 'debit_account_id')::bigint) = 'asset'
+                    when (select type from accounts where id = (v_entry ->> 'account_id')::bigint) = 'asset'
                         then (v_entry ->> 'amount')::bigint
                     else -(v_entry ->> 'amount')::bigint
                     end
                 ) - (
                        case
-                           when (select type from accounts where id = (v_entry ->> 'credit_account_id')::bigint) =
+                           when (select type from accounts where id = (v_entry ->> 'account_id')::bigint) =
                                 'asset'
                                then (v_entry ->> 'amount')::bigint
                            else -(v_entry ->> 'amount')::bigint
@@ -50,9 +50,9 @@ begin
     foreach v_entry in array p_entries
         loop
             insert into entries (transaction_id, account_id, amount, direction)
-            values (v_transaction_id, (v_entry ->> 'debit_account_id')::bigint, (v_entry ->> 'amount')::bigint,
+            values (v_transaction_id, (v_entry ->> 'account_id')::bigint, (v_entry ->> 'amount')::bigint,
                     'debit'),
-                   (v_transaction_id, (v_entry ->> 'credit_account_id')::bigint, (v_entry ->> 'amount')::bigint,
+                   (v_transaction_id, (v_entry ->> 'account_id')::bigint, (v_entry ->> 'amount')::bigint,
                     'credit');
         end loop;
 

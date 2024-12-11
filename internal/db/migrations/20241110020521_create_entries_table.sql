@@ -10,7 +10,8 @@ create table entries
     created_at     timestamptz     not null default current_timestamp,
     updated_at     timestamptz     not null default current_timestamp,
 
-    amount         bigint          not null check (amount >= 0),
+    amount bigint       not null default 0
+        constraint positive_balance check (amount >= 0),
     direction      entry_direction not null,
 
     transaction_id bigint          not null references transactions (id) on delete cascade,
