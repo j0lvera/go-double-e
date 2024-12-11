@@ -13,12 +13,11 @@ import (
 	"time"
 )
 
-func run(ctx context.Context, w io.Writer) error {
+func run(ctx context.Context, w io.Writer, port int) error {
 	// create a pool configuration
 	config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		_ = fmt.Errorf("error parsing database url: %w", err)
-		return err
+		return fmt.Errorf("error parsing database url: %w", err)
 	}
 
 	// pool manual configuration
@@ -31,15 +30,13 @@ func run(ctx context.Context, w io.Writer) error {
 	// create the connection pool
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		_ = fmt.Errorf("error creating connection pool: %w", err)
-		return err
+		return fmt.Errorf("error creating connection pool: %w", err)
 	}
 	defer pool.Close()
 
 	// verify the connection
 	if err := pool.Ping(ctx); err != nil {
-		_ = fmt.Errorf("error pinging connection pool: %w", err)
-		return err
+		return fmt.Errorf("error pinging connection pool: %w", err)
 	}
 
 	// initialize the client
@@ -50,12 +47,12 @@ func run(ctx context.Context, w io.Writer) error {
 
 	// start HTTP server
 	httpServer := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%d", port),
 		Handler: srv,
 	}
 
 	go func() {
-		fmt.Fprintf(w, "Server listening on port 8080\n")
+		fmt.Fprintf(w, "Server listening on port %d\n", port)
 		if err := httpServer.ListenAndServe(); err != nil {
 			fmt.Fprintf(os.Stderr, "error starting the server: %v\n", err)
 		}
@@ -85,7 +82,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	if err := run(ctx, os.Stdout); err != nil {
+	if err := run(ctx, os.Stdout, 8080); err != nil {
 		fmt.Fprintf(os.Stderr, "error running server: %v\n", err)
 		os.Exit(1)
 	}
