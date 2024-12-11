@@ -10,6 +10,9 @@ type Server struct {
 }
 
 func NewServer(client *doublee.Client) http.Handler {
+	// top level HTTP that applies to all routes, e.g.,
+	// CORS, auth middlewares, logging, etc.
+
 	srv := Server{
 		client: client,
 	}

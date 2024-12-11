@@ -59,6 +59,11 @@ begin
     order by created_at desc
     limit 1;
 
+    -- if not previous balance exists, set it to 0
+    if v_previous_balance is null then
+        v_previous_balance := 0;
+    end if;
+
     -- calculate new balance based on account type and entry direction
     v_new_balance := v_previous_balance +
                      case
