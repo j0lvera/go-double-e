@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	db "github.com/j0lvera/go-double-e/internal/db/generated"
 	"net/http"
 )
 
@@ -34,7 +35,9 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.client.CreateUser(r.Context(), req.Email, req.Password)
+	params := db.CreateUserParams(req)
+
+	user, err := s.client.Queries.CreateUser(r.Context(), params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

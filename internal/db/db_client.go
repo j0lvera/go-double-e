@@ -1,4 +1,4 @@
-package doublee
+package db
 
 import (
 	db "github.com/j0lvera/go-double-e/internal/db/generated"
@@ -7,11 +7,11 @@ import (
 
 type Client struct {
 	// Make sqlc queries public so handlers can use it directly
-	queries *db.Queries
+	Queries *db.Queries
 }
 
 func NewClient(pool *pgxpool.Pool) *Client {
 	return &Client{
-		queries: db.New(pool),
+		Queries: db.New(pool),
 	}
 }
