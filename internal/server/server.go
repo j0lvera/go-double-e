@@ -28,4 +28,6 @@ func NewServer(client *db.Client) http.Handler {
 
 func (s *Server) addRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", s.HandleHealthCheck)
+
+	mux.HandleFunc("POST /users", s.HandleCreateUser)
 }

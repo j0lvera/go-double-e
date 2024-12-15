@@ -34,3 +34,21 @@ func TestHealthCheck(t *testing.T) {
 		t.Errorf("Expected response body '%s', got '%s'", expected, strings.TrimSpace(string(body[:n])))
 	}
 }
+
+func TestCreateUser(t *testing.T) {
+	// Set up the server
+	ts := testutils.SetupTestServerWithRun(t, run)
+	defer ts.Cleanup()
+
+	// Create a test user
+	user := `{"email": "user@email.com", "password": "12345678901234567890123456789012345678901234567890123456789"}`
+	resp, err := http.Post(ts.BaseURL+"/users", "application/json", strings.NewReader(user))
+	if err != nil {
+		t.Fatalf("Failed to make POST request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
+	}
+}
