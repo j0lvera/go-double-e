@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	db "github.com/j0lvera/go-double-e/internal/db/generated"
 	"net/http"
 )
 
@@ -33,9 +34,14 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// TODO:
+	// - validate the request body and use proper status codes, e.g., malformed request body, etc.
+	// - hash the password
 
-	user, err := s.client.CreateUser(r.Context(), req.Email, req.Password)
+	params := db.CreateUserParams(req)
+	user, err := s.client.Queries.CreateUser(r.Context(), params)
 	if err != nil {
+		// Return an unknown error
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

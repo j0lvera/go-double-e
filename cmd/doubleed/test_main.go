@@ -1,4 +1,4 @@
-package doublee
+package main
 
 import (
 	"context"
@@ -22,6 +22,12 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Failed to ping database during setup: %v", err)
 	}
 	log.Println("Test database setup successful!")
+
+	// set the DATABASE_URL environment variable
+	err = os.Setenv("DATABASE_URL", db.Pool.Config().ConnString())
+	if err != nil {
+		log.Fatalf("Failed to set DATABASE_URL: %v", err)
+	}
 
 	// run all tests
 	code := m.Run()

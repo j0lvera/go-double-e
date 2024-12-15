@@ -48,13 +48,7 @@ func SetupTestServerWithRun(t *testing.T, runFn func(context.Context, io.Writer,
 	ctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	testDB, err := GetTestDB(ctx)
-	if err != nil {
-		t.Fatalf("GetTestDB() failed to setup test database: %v", err)
-	}
-
 	port := 8081
-	os.Setenv("DATABASE_URL", testDB.Pool.Config().ConnString())
 
 	go func() {
 		if err := runFn(ctx, os.Stdout, port); err != nil {
@@ -66,8 +60,6 @@ func SetupTestServerWithRun(t *testing.T, runFn func(context.Context, io.Writer,
 
 	return &TestServer{
 		BaseURL: fmt.Sprintf("http://localhost:%d", port),
-		Cleanup: func() {
-			testDB.Cleanup()
-		},
+		Cleanup: func() {},
 	}
 }

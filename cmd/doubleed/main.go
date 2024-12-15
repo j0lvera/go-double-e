@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/j0lvera/go-double-e/internal/db"
 	"github.com/j0lvera/go-double-e/internal/server"
-	"github.com/j0lvera/go-double-e/pkg/doublee"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"net/http"
@@ -40,7 +40,7 @@ func run(ctx context.Context, w io.Writer, port int) error {
 	}
 
 	// initialize the client
-	client := doublee.NewClient(pool)
+	client := db.NewClient(pool)
 
 	// initialize the server
 	srv := server.NewServer(client)

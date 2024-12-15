@@ -1,15 +1,15 @@
 package server
 
 import (
-	"github.com/j0lvera/go-double-e/pkg/doublee"
+	"github.com/j0lvera/go-double-e/internal/db"
 	"net/http"
 )
 
 type Server struct {
-	client *doublee.Client
+	client *db.Client
 }
 
-func NewServer(client *doublee.Client) http.Handler {
+func NewServer(client *db.Client) http.Handler {
 	// top level HTTP that applies to all routes, e.g.,
 	// CORS, auth middlewares, logging, etc.
 
@@ -28,4 +28,6 @@ func NewServer(client *doublee.Client) http.Handler {
 
 func (s *Server) addRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", s.HandleHealthCheck)
+
+	mux.HandleFunc("POST /users", s.HandleCreateUser)
 }
