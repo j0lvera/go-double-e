@@ -26,28 +26,31 @@ func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Decode the request body into a CreateUserParams struct
+	userParams, err := decode[db.CreateUserParams](r)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// TODO:
-	// - validate the request body and use proper status codes, e.g., malformed request body, etc.
-	// - hash the password
 
-	params := db.CreateUserParams(req)
-	user, err := s.client.Queries.CreateUser(r.Context(), params)
+	// Create the user
+	user, err := s.client.Queries.CreateUser(r.Context(), userParams)
 	if err != nil {
 		// Return an unknown error
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(user)
+	// We use a custom response so we don't leak the password hash
+	res := struct {
+		Id  int64 `json:"id"`
+		msg string
+	}{
+		Id:  user.ID,
+		msg: "User created successfully",
+	}
+
+	err = encode(w, r, http.StatusCreated, res)
 	if err != nil {
 		return
 	}

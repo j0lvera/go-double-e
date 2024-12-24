@@ -7,8 +7,8 @@ create table users
 
     created_at timestamptz not null default current_timestamp,
     updated_at timestamptz not null default current_timestamp,
+    email      text        not null check (char_length(email) < 255) unique,
 
-    email      text        not null check (char_length(email) < 255),
     -- bcrypt hash is always 60
     password   text        not null check (char_length(password) = 60),
 
