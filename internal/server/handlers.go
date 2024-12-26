@@ -24,10 +24,11 @@ func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	//	w.WriteHeader(http.StatusServiceUnavailable)
 	//}
 
-	err := encode(w, r, http.StatusOK, res)
+	err := writeResponse(w, http.StatusOK, res)
 	if err != nil {
 		return
 	}
+	slog.Info("Health check")
 }
 
 type CreateUserRequest struct {
@@ -36,11 +37,19 @@ type CreateUserRequest struct {
 }
 
 func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+	// Only validation errors should be returned to the client
+	// all other errors should be logged and handled internally
+
+	// TODO:
+	// - [x] return user errors from validation
+	// - [x] hide the database errors from the client and handle them internally
+	// - [ ] add colors to the logs
+
 	// Decode the request body into a CreateUserParams struct
 	req, err := decode[CreateUserRequest](r)
 	if err != nil {
 		slog.Info("Failed to decode request body", "error", err)
-		http.Error(w, ErrInvalidRequest, http.StatusBadRequest)
+		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -48,9 +57,26 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// https://github.com/go-playground/validator?tab=readme-ov-file#special-notes
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err = validate.Struct(req); err != nil {
-		//fmt.Print(map[string]string{"error": err.Error()})
-		slog.Info("Validation error", "error", err)
-		http.Error(w, ErrInvalidRequest, http.StatusBadRequest)
+		validationErrors := ParseValidationErrors(err)
+		slog.Info("Validation error", "errors", validationErrors)
+
+		// Return an array of validation errors, e.g.:
+		// {
+		//   "errors": [
+		//     {
+		//       "field": "email",
+		//       "message": "This field is required"
+		//     },
+		//     {
+		//       "field": "password",
+		//       "message": "This field must be at least 8 characters long"
+		//     }
+		//   ]
+		// }
+		res := map[string][]ValidationError{
+			"errors": validationErrors,
+		}
+		writeError(w, res, http.StatusBadRequest)
 		return
 	}
 
@@ -61,15 +87,45 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userParams := db.CreateUserParams{
+	userParams := dbGen.CreateUserParams{
 		Email:    req.Email,
 		Password: string(hashedPassword),
 	}
 
 	user, err := s.client.Queries.CreateUser(r.Context(), userParams)
 	if err != nil {
+		slog.Debug("received error from database", "error", err, "error_type", fmt.Sprintf("%T", err))
+
+		if dbErr := db.ParseDBError(err); dbErr != nil {
+			switch dbErr.Constraint {
+			// TODO: should we let the user know what this error is?
+			// If i remember correctly, letting people know when the email already exists is a security concern.
+
+			// This is the only error we want to give to the user (maybe).
+			case "users_email_unique":
+				slog.Info("duplicate email attempt",
+					"constraint", dbErr.Constraint,
+					"field", dbErr.Field,
+					"email", userParams.Email,
+					"message", dbErr.Message,
+				)
+
+				writeError(w, ErrUserAlreadyExists, http.StatusConflict)
+				return
+			default:
+				slog.Info("database constraint error",
+					"constraint", dbErr.Constraint,
+					"field", dbErr.Field,
+					"email", userParams.Email,
+					"message", dbErr.Message,
+				)
+				writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+				return
+			}
+		}
+
 		slog.Error("Failed to create user", "error", err)
-		http.Error(w, ErrInternalServerError, http.StatusInternalServerError)
+		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -82,7 +138,7 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		msg:  "User created successfully",
 	}
 
-	err = encode(w, r, http.StatusCreated, res)
+	err = writeResponse(w, http.StatusCreated, res)
 	if err != nil {
 		return
 	}
