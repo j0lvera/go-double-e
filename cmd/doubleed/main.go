@@ -79,9 +79,21 @@ func run(ctx context.Context, w io.Writer, port int) error {
 }
 
 func main() {
+	// set up logging
+	handler := log.NewWithOptions(os.Stderr, log.Options{
+		ReportCaller:    true,
+		ReportTimestamp: true,
+	})
+	if os.Getenv("DEBUG") == "true" {
+		handler.SetLevel(log.DebugLevel)
+	} else {
+		handler.SetLevel(log.InfoLevel)
+	}
+	slog.SetDefault(slog.New(handler))
+
 	// ensure DATABASE_URL is set
 	if os.Getenv("DATABASE_URL") == "" {
-		fmt.Fprintf(os.Stderr, "DATABASE_URL environment variable is required\n")
+		slog.Error("DATABASE_URL environment variable is required", "DATABASE_URL", os.Getenv("DATABASE_URL"))
 		os.Exit(1)
 	}
 
