@@ -40,9 +40,11 @@ func TestCreateUser(t *testing.T) {
 	ts := testutils.SetupTestServerWithRun(t, run)
 	defer ts.Cleanup()
 
+	apiUrl := ts.BaseURL + "/users"
+
 	// Create a test user
 	user := `{"email": "user@email.com", "password": "123456789012345678901234567890123456789012345678901234567890"}`
-	resp, err := http.Post(ts.BaseURL+"/users", "application/json", strings.NewReader(user))
+	resp, err := http.Post(apiUrl, "application/json", strings.NewReader(user))
 	if err != nil {
 		t.Fatalf("Failed to make POST request: %v", err)
 	}
@@ -51,4 +53,16 @@ func TestCreateUser(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("Expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
 	}
+
+	// Check the validation
+	user = `{"email": "user@email.com", "password": "123"}`
+	resp, err = http.Post(apiUrl, "application/json", strings.NewReader(user))
+	if err != nil {
+		t.Fatalf("Failed to make POST request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, resp.StatusCode)
+	}
+
 }

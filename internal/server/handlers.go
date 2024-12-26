@@ -1,14 +1,18 @@
 package server
 
 import (
-	"encoding/json"
+	"github.com/go-playground/validator/v10"
 	db "github.com/j0lvera/go-double-e/internal/db/generated"
+	"golang.org/x/crypto/bcrypt"
+	"log/slog"
+
+	//db "github.com/j0lvera/go-double-e/internal/db/generated"
 	"net/http"
 )
 
 // HandleHealthCheck is a simple health check handler
 func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	health := struct {
+	res := struct {
 		Status string `json:"status"`
 	}{
 		Status: "ok",
@@ -20,34 +24,66 @@ func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	//	w.WriteHeader(http.StatusServiceUnavailable)
 	//}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(health)
+	err := encode(w, r, http.StatusOK, res)
+	if err != nil {
+		return
+	}
+}
+
+type CreateUserRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
 func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Decode the request body into a CreateUserParams struct
-	userParams, err := decode[db.CreateUserParams](r)
+	req, err := decode[CreateUserRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		slog.Info("Failed to decode request body", "error", err)
+		http.Error(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
-	// Create the user
+	// Validation
+	// https://github.com/go-playground/validator?tab=readme-ov-file#special-notes
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	if err = validate.Struct(req); err != nil {
+		//fmt.Print(map[string]string{"error": err.Error()})
+		slog.Info("Validation error", "error", err)
+		http.Error(w, ErrInvalidRequest, http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		slog.Error("Failed to hash password", "error", err)
+		http.Error(w, ErrInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	// TODO:
+	// - [ ] add unique constraint to email column
+	// - [ ] remove "-", "_" and " " from nanoid function
+
+	userParams := db.CreateUserParams{
+		Email:    req.Email,
+		Password: string(hashedPassword),
+	}
+
 	user, err := s.client.Queries.CreateUser(r.Context(), userParams)
 	if err != nil {
-		// Return an unknown error
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		slog.Error("Failed to create user", "error", err)
+		http.Error(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
 	// We use a custom response so we don't leak the password hash
 	res := struct {
-		Id  int64 `json:"id"`
-		msg string
+		Uuid string `json:"uuid"`
+		msg  string
 	}{
-		Id:  user.ID,
-		msg: "User created successfully",
+		Uuid: user.Uuid,
+		msg:  "User created successfully",
 	}
 
 	err = encode(w, r, http.StatusCreated, res)
