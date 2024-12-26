@@ -40,11 +40,6 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Only validation errors should be returned to the client
 	// all other errors should be logged and handled internally
 
-	// TODO:
-	// - [x] return user errors from validation
-	// - [x] hide the database errors from the client and handle them internally
-	// - [ ] add colors to the logs
-
 	// Decode the request body into a CreateUserParams struct
 	req, err := decode[CreateUserRequest](r)
 	if err != nil {
