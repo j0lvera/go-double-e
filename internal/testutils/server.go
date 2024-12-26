@@ -72,6 +72,24 @@ func SetupTestServerWithRun(t *testing.T, runFn func(context.Context, io.Writer,
 
 	return &TestServer{
 		BaseURL: fmt.Sprintf("http://localhost:%d", port),
-		Cleanup: func() {},
+		Cleanup: func() {
+			testDb.Cleanup()
+		},
 	}
+}
+
+// ReadResponseBody reads the response body and returns it as a string
+func ReadResponseBody(t *testing.T, resp *http.Response) (string, error) {
+	t.Helper()
+
+	body := make([]byte, 1024)
+	n, err := resp.Body.Read(body)
+	if err != nil && err != io.EOF {
+		//t.Fatalf("Failed to read response body: %v", err)
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Trim the response body to remove any trailing whitespace
+	bodyTrimmed := strings.TrimSpace(string(body[:n]))
+	return bodyTrimmed, nil
 }
