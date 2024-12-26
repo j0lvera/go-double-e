@@ -61,10 +61,6 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO:
-	// - [ ] add unique constraint to email column
-	// - [ ] remove "-", "_" and " " from nanoid function
-
 	userParams := db.CreateUserParams{
 		Email:    req.Email,
 		Password: string(hashedPassword),
