@@ -45,6 +45,17 @@ func SetupTestServerWithRun(t *testing.T, runFn func(context.Context, io.Writer,
 	t.Helper()
 
 	ctx := context.Background()
+
+	testDb, err := GetTestDB(ctx)
+	if err != nil {
+		t.Fatalf("Failed to setup test database: %v", err)
+	}
+
+	err = os.Setenv("DATABASE_URL", testDb.Pool.Config().ConnString())
+	if err != nil {
+		t.Fatalf("Failed to set DATABASE_URL: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 

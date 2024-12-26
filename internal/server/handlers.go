@@ -1,12 +1,12 @@
 package server
 
 import (
+	"fmt"
 	"github.com/go-playground/validator/v10"
-	db "github.com/j0lvera/go-double-e/internal/db/generated"
+	"github.com/j0lvera/go-double-e/internal/db"
+	dbGen "github.com/j0lvera/go-double-e/internal/db/generated"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
-
-	//db "github.com/j0lvera/go-double-e/internal/db/generated"
 	"net/http"
 )
 
