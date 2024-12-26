@@ -9,15 +9,65 @@ import (
 )
 
 type Querier interface {
+	//CreateAccount
+	//
+	//  insert into accounts (name, type, metadata, ledger_id, user_id)
+	//  values ($1, $2, $3, $4, $5)
+	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	//CreateEntry
+	//
+	//  insert into entries (amount, direction, transaction_id, account_id)
+	//  values ($1, $2, $3, $4)
+	//  returning id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
 	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
+	//CreateLedger
+	//
+	//  insert into ledgers (name, description, metadata, user_id)
+	//  values ($1, $2, $3, $4)
+	//  returning id, uuid, created_at, updated_at, name, description, metadata, user_id
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
+	//CreateTransaction
+	//
+	//  insert into transactions (description, metadata, ledger_id, user_id)
+	//  values ($1, $2, $3, $4)
+	//  returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	//CreateUser
+	//
+	//  insert into users (email, password) values ($1, $2) returning id, uuid, created_at, updated_at, email, password
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	//GetAccount
+	//
+	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
+	//  from accounts
+	//  where id = $1
+	//  limit 1
 	GetAccount(ctx context.Context, id int64) (Account, error)
+	//GetEntry
+	//
+	//  select id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
+	//  from entries
+	//  where id = $1
+	//  limit 1
 	GetEntry(ctx context.Context, id int64) (Entry, error)
+	//GetLedger
+	//
+	//  select id, uuid, created_at, updated_at, name, description, metadata, user_id
+	//  from ledgers
+	//  where id = $1
+	//  limit 1
 	GetLedger(ctx context.Context, id int64) (Ledger, error)
+	//GetTransaction
+	//
+	//  select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
+	//  from transactions
+	//  where id = $1
+	//  limit 1
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
+	//GetUser
+	//
+	//  select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
 	GetUser(ctx context.Context, id int64) (User, error)
 }
 

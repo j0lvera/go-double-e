@@ -22,6 +22,11 @@ type CreateEntryParams struct {
 	AccountID     int64
 }
 
+// CreateEntry
+//
+//	insert into entries (amount, direction, transaction_id, account_id)
+//	values ($1, $2, $3, $4)
+//	returning id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error) {
 	row := q.db.QueryRow(ctx, createEntry,
 		arg.Amount,
@@ -50,6 +55,12 @@ where id = $1
 limit 1
 `
 
+// GetEntry
+//
+//	select id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
+//	from entries
+//	where id = $1
+//	limit 1
 func (q *Queries) GetEntry(ctx context.Context, id int64) (Entry, error) {
 	row := q.db.QueryRow(ctx, getEntry, id)
 	var i Entry

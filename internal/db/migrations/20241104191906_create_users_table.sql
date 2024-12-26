@@ -7,13 +7,16 @@ create table users
 
     created_at timestamptz not null default current_timestamp,
     updated_at timestamptz not null default current_timestamp,
-    email      text        not null check (char_length(email) < 255) unique,
 
+    email      text        not null,
+    password   text        not null,
+
+    -- constraints
+    constraint users_uuid_unique unique (uuid),
+    constraint users_email_unique unique (email),
+    constraint users_email_check check (char_length(email) < 255),
     -- bcrypt hash is always 60
-    password   text        not null check (char_length(password) = 60),
-
-    -- create a unique index for the uuid
-    unique (uuid)
+    constraint users_password_check check (char_length(password) = 60)
 );
 
 create trigger user_updated_at

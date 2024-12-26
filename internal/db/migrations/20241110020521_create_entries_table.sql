@@ -10,14 +10,15 @@ create table entries
     created_at     timestamptz     not null default current_timestamp,
     updated_at     timestamptz     not null default current_timestamp,
 
-    amount bigint       not null default 0
-        constraint positive_balance check (amount >= 0),
+    amount         bigint          not null default 0,
     direction      entry_direction not null,
 
     transaction_id bigint          not null references transactions (id) on delete cascade,
     account_id     bigint          not null references accounts (id) on delete cascade,
 
-    unique (uuid)
+    -- constraints
+    constraint entries_uuid_unique unique (uuid),
+    constraint entries_amount_positive check (amount >= 0)
 );
 
 create trigger entry_updated_at

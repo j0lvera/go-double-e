@@ -20,7 +20,8 @@ create table account_balances
     ledger_id      bigint      not null references ledgers (id) on delete cascade,
     user_id        bigint      not null references users (id) on delete cascade,
 
-    unique (uuid)
+    -- constraints
+    constraint account_balances_uuid_unique unique (uuid)
 );
 
 create trigger account_balance_updated_at
@@ -53,11 +54,11 @@ begin
 
     -- get previous balance
     select balance
-    into v_previous_balance
-    from account_balances
-    where account_id = NEW.account_id
-    order by created_at desc
-    limit 1;
+      into v_previous_balance
+      from account_balances
+     where account_id = NEW.account_id
+     order by created_at desc
+     limit 1;
 
     -- if not previous balance exists, set it to 0
     if v_previous_balance is null then
@@ -102,10 +103,10 @@ create or replace function get_account_balance(p_account_id bigint)
     returns bigint as
 $$
 select balance
-from account_balances
-where account_id = p_account_id
-order by created_at desc
-limit 1;
+  from account_balances
+ where account_id = p_account_id
+ order by created_at desc
+ limit 1;
 $$ language sql;
 
 -- +goose StatementEnd

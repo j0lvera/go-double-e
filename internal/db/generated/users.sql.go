@@ -18,6 +18,9 @@ type CreateUserParams struct {
 	Password string
 }
 
+// CreateUser
+//
+//	insert into users (email, password) values ($1, $2) returning id, uuid, created_at, updated_at, email, password
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.Password)
 	var i User
@@ -36,6 +39,9 @@ const getUser = `-- name: GetUser :one
 select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
 `
 
+// GetUser
+//
+//	select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRow(ctx, getUser, id)
 	var i User

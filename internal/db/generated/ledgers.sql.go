@@ -24,6 +24,11 @@ type CreateLedgerParams struct {
 	UserID      int64
 }
 
+// CreateLedger
+//
+//	insert into ledgers (name, description, metadata, user_id)
+//	values ($1, $2, $3, $4)
+//	returning id, uuid, created_at, updated_at, name, description, metadata, user_id
 func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error) {
 	row := q.db.QueryRow(ctx, createLedger,
 		arg.Name,
@@ -52,6 +57,12 @@ where id = $1
 limit 1
 `
 
+// GetLedger
+//
+//	select id, uuid, created_at, updated_at, name, description, metadata, user_id
+//	from ledgers
+//	where id = $1
+//	limit 1
 func (q *Queries) GetLedger(ctx context.Context, id int64) (Ledger, error) {
 	row := q.db.QueryRow(ctx, getLedger, id)
 	var i Ledger

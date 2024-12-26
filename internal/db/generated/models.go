@@ -95,6 +95,48 @@ func (ns NullEntryDirection) Value() (driver.Value, error) {
 	return string(ns.EntryDirection), nil
 }
 
+type TransactionStatus string
+
+const (
+	TransactionStatusPending TransactionStatus = "pending"
+	TransactionStatusPosted  TransactionStatus = "posted"
+)
+
+func (e *TransactionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TransactionStatus(s)
+	case string:
+		*e = TransactionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TransactionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTransactionStatus struct {
+	TransactionStatus TransactionStatus
+	Valid             bool // Valid is true if TransactionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTransactionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TransactionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TransactionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTransactionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TransactionStatus), nil
+}
+
 type Account struct {
 	ID        int64
 	Uuid      string
@@ -102,7 +144,6 @@ type Account struct {
 	UpdatedAt pgtype.Timestamptz
 	Name      string
 	Type      AccountType
-	Balance   int64
 	Metadata  []byte
 	LedgerID  int64
 	UserID    int64
@@ -148,6 +189,8 @@ type Transaction struct {
 	Uuid        string
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+	Status      TransactionStatus
+	Date        pgtype.Date
 	Description pgtype.Text
 	Metadata    []byte
 	LedgerID    int64

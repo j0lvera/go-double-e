@@ -10,15 +10,16 @@ create table accounts
     created_at timestamptz  not null default current_timestamp,
     updated_at timestamptz  not null default current_timestamp,
 
-    name       text         not null check (char_length(name) < 255),
+    name       text         not null,
     type       account_type not null,
-    balance    bigint       not null default 0,
     metadata   jsonb,
 
     ledger_id  bigint       not null references ledgers (id) on delete cascade,
     user_id    bigint       not null references users (id) on delete cascade,
 
-    unique (uuid)
+    -- constraints
+    constraint accounts_uuid_unique unique (uuid),
+    constraint accounts_name_length_check check (char_length(name) < 255)
 );
 
 create trigger account_updated_at

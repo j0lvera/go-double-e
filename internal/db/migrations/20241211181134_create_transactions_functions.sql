@@ -35,7 +35,7 @@ begin
                            else -(v_entry ->> 'amount')::bigint
                            end
                        )
-            into v_total_balance;
+              into v_total_balance;
         end loop;
 
     if v_total_balance != 0 then
@@ -43,8 +43,8 @@ begin
     end if;
 
     -- create transaction and entries if balanced
-    insert into transactions (description, ledger_id, user_id, metadata)
-    values (p_description, p_ledger_id, p_user_id, p_metadata)
+       insert into transactions (description, ledger_id, user_id, metadata)
+       values (p_description, p_ledger_id, p_user_id, p_metadata)
     returning id into v_transaction_id;
 
     foreach v_entry in array p_entries

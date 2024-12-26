@@ -12,7 +12,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 insert into accounts (name, type, metadata, ledger_id, user_id)
 values ($1, $2, $3, $4, $5)
-returning id, uuid, created_at, updated_at, name, type, balance, metadata, ledger_id, user_id
+returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
 `
 
 type CreateAccountParams struct {
@@ -23,6 +23,11 @@ type CreateAccountParams struct {
 	UserID   int64
 }
 
+// CreateAccount
+//
+//	insert into accounts (name, type, metadata, ledger_id, user_id)
+//	values ($1, $2, $3, $4, $5)
+//	returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
 	row := q.db.QueryRow(ctx, createAccount,
 		arg.Name,
@@ -39,7 +44,6 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Type,
-		&i.Balance,
 		&i.Metadata,
 		&i.LedgerID,
 		&i.UserID,
@@ -48,12 +52,18 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 }
 
 const getAccount = `-- name: GetAccount :one
-select id, uuid, created_at, updated_at, name, type, balance, metadata, ledger_id, user_id
+select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
 from accounts
 where id = $1
 limit 1
 `
 
+// GetAccount
+//
+//	select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
+//	from accounts
+//	where id = $1
+//	limit 1
 func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccount, id)
 	var i Account
@@ -64,7 +74,6 @@ func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Type,
-		&i.Balance,
 		&i.Metadata,
 		&i.LedgerID,
 		&i.UserID,

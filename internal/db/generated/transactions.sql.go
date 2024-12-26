@@ -14,7 +14,7 @@ import (
 const createTransaction = `-- name: CreateTransaction :one
 insert into transactions (description, metadata, ledger_id, user_id)
 values ($1, $2, $3, $4)
-returning id, uuid, created_at, updated_at, description, metadata, ledger_id, user_id
+returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
 `
 
 type CreateTransactionParams struct {
@@ -24,6 +24,11 @@ type CreateTransactionParams struct {
 	UserID      int64
 }
 
+// CreateTransaction
+//
+//	insert into transactions (description, metadata, ledger_id, user_id)
+//	values ($1, $2, $3, $4)
+//	returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
 	row := q.db.QueryRow(ctx, createTransaction,
 		arg.Description,
@@ -37,6 +42,8 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.Uuid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.Date,
 		&i.Description,
 		&i.Metadata,
 		&i.LedgerID,
@@ -46,12 +53,18 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 }
 
 const getTransaction = `-- name: GetTransaction :one
-select id, uuid, created_at, updated_at, description, metadata, ledger_id, user_id
+select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
 from transactions
 where id = $1
 limit 1
 `
 
+// GetTransaction
+//
+//	select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
+//	from transactions
+//	where id = $1
+//	limit 1
 func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, error) {
 	row := q.db.QueryRow(ctx, getTransaction, id)
 	var i Transaction
@@ -60,6 +73,8 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 		&i.Uuid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.Date,
 		&i.Description,
 		&i.Metadata,
 		&i.LedgerID,

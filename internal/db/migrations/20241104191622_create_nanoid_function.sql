@@ -99,7 +99,7 @@ $$;
 
 -- +goose Down
 -- +goose StatementBegin
-    drop function nanoid(int, text, float);
-    drop function nanoid_optimized(int, text, int, int);
-    drop extension pgcrypto;
+drop function nanoid(int, text, float);
+drop function nanoid_optimized(int, text, int, int);
+drop extension pgcrypto;
 -- +goose StatementEnd

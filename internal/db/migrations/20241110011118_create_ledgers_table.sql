@@ -8,14 +8,16 @@ create table ledgers
     created_at  timestamptz not null default current_timestamp,
     updated_at  timestamptz not null default current_timestamp,
 
-    name        text        not null check (char_length(name) < 255),
+    name        text        not null,
     description text,
     metadata    jsonb,
 
     user_id     bigint      not null references users (id) on delete cascade,
 
-    -- create a unique index for the uuid
-    unique (uuid)
+    -- constraints
+    constraint ledgers_uuid_unique unique (uuid),
+    constraint ledgers_name_length_check check (char_length(name) < 255),
+    constraint ledgers_description_length_check check (char_length(description) < 255)
 );
 
 create trigger ledger_updated_at
