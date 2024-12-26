@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/charmbracelet/log"
 	"github.com/j0lvera/go-double-e/internal/db"
 	"github.com/j0lvera/go-double-e/internal/server"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -52,9 +54,9 @@ func run(ctx context.Context, w io.Writer, port int) error {
 	}
 
 	go func() {
-		fmt.Fprintf(w, "Server listening on port %d\n", port)
+		slog.Info("Server is listening", "port", port)
 		if err := httpServer.ListenAndServe(); err != nil {
-			fmt.Fprintf(os.Stderr, "error starting the server: %v\n", err)
+			slog.Error("Could not start the server", "error", err)
 		}
 	}()
 
@@ -83,7 +85,7 @@ func main() {
 	defer cancel()
 
 	if err := run(ctx, os.Stdout, 8080); err != nil {
-		fmt.Fprintf(os.Stderr, "error running server: %v\n", err)
+		slog.Error("Error running server", "error", err)
 		os.Exit(1)
 	}
 }

@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
+	"github.com/charmbracelet/log"
 	"github.com/j0lvera/go-double-e/internal/testutils"
-	"log"
+	"log/slog"
 	"os"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
+	testutils.SetupTestLogger()
 	ctx := context.Background()
 
 	// get the test database instance
@@ -21,13 +23,7 @@ func TestMain(m *testing.M) {
 	if err := db.Pool.Ping(ctx); err != nil {
 		log.Fatalf("Failed to ping database during setup: %v", err)
 	}
-	log.Println("Test database setup successful!")
-
-	// set the DATABASE_URL environment variable
-	err = os.Setenv("DATABASE_URL", db.Pool.Config().ConnString())
-	if err != nil {
-		log.Fatalf("Failed to set DATABASE_URL: %v", err)
-	}
+	slog.Info("Test database setup successful!")
 
 	// run all tests
 	code := m.Run()
