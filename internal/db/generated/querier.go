@@ -35,7 +35,9 @@ type Querier interface {
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	//CreateUser
 	//
-	//  insert into users (email, password) values ($1, $2) returning id, uuid, created_at, updated_at, email, password
+	//     insert into users (email, password)
+	//     values ($1, $2)
+	//  returning id, uuid, created_at, updated_at, email, password
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	//GetAccount
 	//
@@ -67,8 +69,18 @@ type Querier interface {
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
 	//GetUser
 	//
-	//  select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
+	//  select id, uuid, created_at, updated_at, email, password
+	//    from users
+	//   where id = $1
+	//   limit 1
 	GetUser(ctx context.Context, id int64) (User, error)
+	//GetUserByEmail
+	//
+	//  select id, uuid, created_at, updated_at, email, password
+	//    from users
+	//   where email = $1
+	//   limit 1
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)
