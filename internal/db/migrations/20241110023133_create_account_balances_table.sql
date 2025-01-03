@@ -3,7 +3,7 @@
 create table account_balances
 (
     id             bigint generated always as identity primary key,
-    uuid           text        not null default concat('b_', nanoid(10)),
+    uuid           text        not null default nanoid(10),
 
     created_at     timestamptz not null default current_timestamp,
     updated_at     timestamptz not null default current_timestamp,
@@ -18,7 +18,6 @@ create table account_balances
     -- denormalized references for easier querying
     transaction_id bigint      not null references transactions (id) on delete cascade,
     ledger_id      bigint      not null references ledgers (id) on delete cascade,
-    user_id        bigint      not null references users (id) on delete cascade,
 
     -- constraints
     constraint account_balances_uuid_unique unique (uuid)
@@ -42,12 +41,11 @@ declare
     v_new_balance      bigint;
     v_transaction_id   bigint;
     v_ledger_id        bigint;
-    v_user_id          bigint;
     v_account_type     account_type;
 begin
     -- get the transaction_id and ledger_id for denormalization
     select transaction_id into v_transaction_id from entries where id = NEW.id;
-    select ledger_id, user_id into v_ledger_id, v_user_id from transactions where id = v_transaction_id;
+    select ledger_id into v_ledger_id from transactions where id = v_transaction_id;
 
     -- get account type
     select type into v_account_type from accounts where id = new.account_id;
@@ -79,14 +77,12 @@ begin
                                   account_id,
                                   entry_id,
                                   transaction_id,
-                                  ledger_id,
-                                  user_id)
+                                  ledger_id)
     values (v_new_balance,
             NEW.account_id,
             NEW.id,
             v_transaction_id,
-            v_ledger_id,
-            v_user_id);
+            v_ledger_id);
 
     return NEW;
 end;

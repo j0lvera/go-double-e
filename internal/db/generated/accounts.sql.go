@@ -10,9 +10,9 @@ import (
 )
 
 const createAccount = `-- name: CreateAccount :one
-insert into accounts (name, type, metadata, ledger_id, user_id)
-values ($1, $2, $3, $4, $5)
-returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
+   insert into accounts (name, type, metadata, ledger_id)
+   values ($1, $2, $3, $4)
+returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 `
 
 type CreateAccountParams struct {
@@ -20,21 +20,19 @@ type CreateAccountParams struct {
 	Type     AccountType
 	Metadata []byte
 	LedgerID int64
-	UserID   int64
 }
 
 // CreateAccount
 //
-//	insert into accounts (name, type, metadata, ledger_id, user_id)
-//	values ($1, $2, $3, $4, $5)
-//	returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
+//	   insert into accounts (name, type, metadata, ledger_id)
+//	   values ($1, $2, $3, $4)
+//	returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
 	row := q.db.QueryRow(ctx, createAccount,
 		arg.Name,
 		arg.Type,
 		arg.Metadata,
 		arg.LedgerID,
-		arg.UserID,
 	)
 	var i Account
 	err := row.Scan(
@@ -46,24 +44,23 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Type,
 		&i.Metadata,
 		&i.LedgerID,
-		&i.UserID,
 	)
 	return i, err
 }
 
 const getAccount = `-- name: GetAccount :one
-select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
-from accounts
-where id = $1
-limit 1
+select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
+  from accounts
+ where id = $1
+ limit 1
 `
 
 // GetAccount
 //
-//	select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
-//	from accounts
-//	where id = $1
-//	limit 1
+//	select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
+//	  from accounts
+//	 where id = $1
+//	 limit 1
 func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccount, id)
 	var i Account
@@ -76,7 +73,6 @@ func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 		&i.Type,
 		&i.Metadata,
 		&i.LedgerID,
-		&i.UserID,
 	)
 	return i, err
 }

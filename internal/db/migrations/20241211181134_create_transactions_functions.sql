@@ -3,7 +3,6 @@
 create or replace function create_transaction_with_entries(
     p_description text,
     p_ledger_id bigint,
-    p_user_id bigint,
     p_entries json[],
     p_metadata jsonb default null
 ) returns bigint as
@@ -43,8 +42,8 @@ begin
     end if;
 
     -- create transaction and entries if balanced
-       insert into transactions (description, ledger_id, user_id, metadata)
-       values (p_description, p_ledger_id, p_user_id, p_metadata)
+       insert into transactions (description, ledger_id, metadata)
+       values (p_description, p_ledger_id, p_metadata)
     returning id into v_transaction_id;
 
     foreach v_entry in array p_entries

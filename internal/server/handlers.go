@@ -1,16 +1,13 @@
 package server
 
 import (
-	"fmt"
+	"encoding/json"
 	"github.com/go-playground/validator/v10"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/j0lvera/go-double-e/internal/db"
+	_ "github.com/j0lvera/go-double-e/internal/db"
 	dbGen "github.com/j0lvera/go-double-e/internal/db/generated"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
 	"net/http"
-	"os"
-	"time"
 )
 
 // HandleHealthCheck is a simple health check handler
@@ -34,43 +31,28 @@ func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Health check")
 }
 
-type CreateUserRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
+type CreateLedgerRequest struct {
+	Name        string                 `json:"name" validate:"required,max=255"`
+	Description string                 `json:"description,omitempty" validate:"max=255"`
+	Metadata    map[string]interface{} `json:"metadata"`
 }
 
-func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	// Only validation errors should be returned to the client
-	// all other errors should be logged and handled internally
-
-	// Decode the request body into a CreateUserParams struct
-	req, err := decode[CreateUserRequest](r)
+// HandleCreateLedger is the handler for creating a new ledger
+func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
+	// decode the request body
+	req, err := decode[CreateLedgerRequest](r)
 	if err != nil {
-		slog.Info("Failed to decode request body", "error", err)
+		slog.Info("Failed to decode request", "error", err)
 		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
-	// Validation
-	// https://github.com/go-playground/validator?tab=readme-ov-file#special-notes
+	// validate the request
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err = validate.Struct(req); err != nil {
 		validationErrors := ParseValidationErrors(err)
-		slog.Info("Validation error", "errors", validationErrors)
+		slog.Info("Failed to validate request", "error", err)
 
-		// Return an array of validation errors, e.g.:
-		// {
-		//   "errors": [
-		//     {
-		//       "field": "email",
-		//       "message": "This field is required"
-		//     },
-		//     {
-		//       "field": "password",
-		//       "message": "This field must be at least 8 characters long"
-		//     }
-		//   ]
-		// }
 		res := map[string][]ValidationError{
 			"errors": validationErrors,
 		}
@@ -78,147 +60,99 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		slog.Error("Failed to hash password", "error", err)
-		http.Error(w, ErrInternalServerError, http.StatusInternalServerError)
-		return
+	// cast the description field to a pgtype.Text
+	description := pgtype.Text{
+		String: req.Description,
+		Valid:  true,
 	}
 
-	userParams := dbGen.CreateUserParams{
-		Email:    req.Email,
-		Password: string(hashedPassword),
-	}
-
-	user, err := s.client.Queries.CreateUser(r.Context(), userParams)
+	// marshal the metadata field
+	metadataBytes, err := json.Marshal(req.Metadata)
 	if err != nil {
-		slog.Debug("received error from database", "error", err, "error_type", fmt.Sprintf("%T", err))
-
-		if dbErr := db.ParseDBError(err); dbErr != nil {
-			switch dbErr.Constraint {
-			// TODO: should we let the user know what this error is?
-			// If i remember correctly, letting people know when the email already exists is a security concern.
-
-			// This is the only error we want to give to the user (maybe).
-			case "users_email_unique":
-				slog.Info("duplicate email attempt",
-					"constraint", dbErr.Constraint,
-					"field", dbErr.Field,
-					"email", userParams.Email,
-					"message", dbErr.Message,
-				)
-
-				writeError(w, ErrUserAlreadyExists, http.StatusConflict)
-				return
-			default:
-				slog.Info("database constraint error",
-					"constraint", dbErr.Constraint,
-					"field", dbErr.Field,
-					"email", userParams.Email,
-					"message", dbErr.Message,
-				)
-				writeError(w, ErrInternalServerError, http.StatusInternalServerError)
-				return
-			}
-		}
-
-		slog.Error("Failed to create user", "error", err)
+		slog.Debug("Failed to marshal metadata field", "error", err)
 		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
-	// We use a custom response so we don't leak the password hash
-	res := struct {
-		Uuid string `json:"uuid"`
-		Msg  string `json:"msg"`
-	}{
-		Uuid: user.Uuid,
-		Msg:  "User created successfully",
+	// add the ledger to the database
+	ledgerParams := dbGen.CreateLedgerParams{
+		Name:        req.Name,
+		Description: description,
+		Metadata:    metadataBytes,
 	}
+	ledger, err := s.client.Queries.CreateLedger(r.Context(), ledgerParams)
+	if err != nil {
+		slog.Debug("Failed to create ledger", "error", err)
+		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	// format the response
+	detail := struct {
+		UUID string `json:"uuid"`
+		Name string `json:"name"`
+	}{
+		UUID: ledger.Uuid,
+		Name: ledger.Name,
+	}
+
+	res := NewResponse("OK", 1, "OBJ", detail)
 
 	err = writeResponse(w, http.StatusCreated, res)
 	if err != nil {
 		return
 	}
+	slog.Info("Ledger created", "uuid", ledger.Uuid)
 }
 
-type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+type MetadataQuery struct {
+	Metadata map[string]any `schema:"metadata"`
 }
 
-type Claims struct {
-	//Email string `json:"email"`
-	Uuid string `json:"uuid"`
-	jwt.RegisteredClaims
-}
-
-func (s *Server) HandleLoginUser(w http.ResponseWriter, r *http.Request) {
-	req, err := decode[LoginRequest](r)
+// HandleListLedgers returns a list of ledgers
+// whatever the request body is, it will be ignored.
+// you must send a query string parameter in the shape of:
+//   - ?metadata[key]=value
+//   - ?metadata[key]=value&metadata[key]=value
+//
+// if the metadata param is not present, it will be ignored and the server will return 404.
+// if no query string parameter is present, it will return bad request.
+func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
+	// parse and marshal the metadata field
+	metadataBytes, err := parseMetadataParam(r)
 	if err != nil {
-		slog.Info("Failed to decode request body", "error", err)
-		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
-		return
-	}
-
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	if err = validate.Struct(req); err != nil {
-		validationErrors := ParseValidationErrors(err)
-		slog.Info("Validation error", "errors", validationErrors)
-		res := map[string][]ValidationError{
-			"errors": validationErrors,
-		}
-		writeError(w, res, http.StatusBadRequest)
-		return
-	}
-
-	user, err := s.client.Queries.GetUserByEmail(r.Context(), req.Email)
-	if err != nil {
-		slog.Error("Failed to get user from database", "error", err)
+		slog.Debug("Failed to parse and marshal metadata field", "error", err)
 		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		slog.Info("Invalid password attempt", "error", err)
-		writeError(w, ErrInvalidCredentials, http.StatusUnauthorized)
-		return
-	}
-
-	claims := Claims{
-		Uuid: user.Uuid,
-		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			//ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+	// get the ledgers from the database
+	ledgers, err := s.client.Queries.ListLedgers(r.Context(), metadataBytes)
 	if err != nil {
-		slog.Error("Failed to sign token", "error", err)
+		slog.Debug("Failed to list ledgers", "error", err)
 		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    signedToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
+	ledgersCount := len(ledgers)
 
-	res := struct {
-		Msg string `json:"msg"`
+	// no ledgers found, return 404
+	if ledgersCount == 0 {
+		writeError(w, ErrNotFound, http.StatusNotFound)
+		return
+	}
+
+	// format the response
+	detail := struct {
+		Ledgers []dbGen.Ledger `json:"ledgers"`
 	}{
-		Msg: "Logged in successfully",
+		Ledgers: ledgers,
 	}
 
+	res := NewResponse("OK", ledgersCount, "LIST", detail)
 	err = writeResponse(w, http.StatusOK, res)
 	if err != nil {
 		return
 	}
+	slog.Info("Listed ledgers", "count", ledgersCount)
 }

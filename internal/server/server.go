@@ -29,6 +29,6 @@ func NewServer(client *db.Client) http.Handler {
 func (s *Server) addRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health", s.HandleHealthCheck)
 
-	mux.HandleFunc("POST /users", s.HandleCreateUser)
-	mux.HandleFunc("POST /users/login", s.HandleLoginUser)
+	mux.HandleFunc("POST /ledgers", s.HandleCreateLedger)
+	mux.HandleFunc("GET /ledgers", s.HandleListLedgers)
 }

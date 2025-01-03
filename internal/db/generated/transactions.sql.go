@@ -12,30 +12,24 @@ import (
 )
 
 const createTransaction = `-- name: CreateTransaction :one
-insert into transactions (description, metadata, ledger_id, user_id)
-values ($1, $2, $3, $4)
-returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
+   insert into transactions (description, metadata, ledger_id)
+   values ($1, $2, $3)
+returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 `
 
 type CreateTransactionParams struct {
 	Description pgtype.Text
 	Metadata    []byte
 	LedgerID    int64
-	UserID      int64
 }
 
 // CreateTransaction
 //
-//	insert into transactions (description, metadata, ledger_id, user_id)
-//	values ($1, $2, $3, $4)
-//	returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
+//	   insert into transactions (description, metadata, ledger_id)
+//	   values ($1, $2, $3)
+//	returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, createTransaction,
-		arg.Description,
-		arg.Metadata,
-		arg.LedgerID,
-		arg.UserID,
-	)
+	row := q.db.QueryRow(ctx, createTransaction, arg.Description, arg.Metadata, arg.LedgerID)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -47,24 +41,23 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.Description,
 		&i.Metadata,
 		&i.LedgerID,
-		&i.UserID,
 	)
 	return i, err
 }
 
 const getTransaction = `-- name: GetTransaction :one
-select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
-from transactions
-where id = $1
-limit 1
+select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+  from transactions
+ where id = $1
+ limit 1
 `
 
 // GetTransaction
 //
-//	select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
-//	from transactions
-//	where id = $1
-//	limit 1
+//	select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+//	  from transactions
+//	 where id = $1
+//	 limit 1
 func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, error) {
 	row := q.db.QueryRow(ctx, getTransaction, id)
 	var i Transaction
@@ -78,7 +71,6 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 		&i.Description,
 		&i.Metadata,
 		&i.LedgerID,
-		&i.UserID,
 	)
 	return i, err
 }

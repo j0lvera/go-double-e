@@ -1,11 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
-create type account_type as enum ('asset', 'liability');
+create type account_type as enum ('asset', 'liability', 'equity', 'revenue', 'expense');
 
 create table accounts
 (
     id         bigint generated always as identity primary key,
-    uuid       text         not null default concat('a_', nanoid(10)),
+    uuid       text         not null default nanoid(10),
 
     created_at timestamptz  not null default current_timestamp,
     updated_at timestamptz  not null default current_timestamp,
@@ -15,7 +15,6 @@ create table accounts
     metadata   jsonb,
 
     ledger_id  bigint       not null references ledgers (id) on delete cascade,
-    user_id    bigint       not null references users (id) on delete cascade,
 
     -- constraints
     constraint accounts_uuid_unique unique (uuid),
