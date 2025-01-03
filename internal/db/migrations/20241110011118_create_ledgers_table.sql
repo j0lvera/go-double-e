@@ -3,7 +3,7 @@
 create table ledgers
 (
     id          bigint generated always as identity primary key,
-    uuid        text        not null default concat('l_', nanoid(10)),
+    uuid        text        not null default nanoid(10),
 
     created_at  timestamptz not null default current_timestamp,
     updated_at  timestamptz not null default current_timestamp,
@@ -11,8 +11,6 @@ create table ledgers
     name        text        not null,
     description text,
     metadata    jsonb,
-
-    user_id     bigint      not null references users (id) on delete cascade,
 
     -- constraints
     constraint ledgers_uuid_unique unique (uuid),

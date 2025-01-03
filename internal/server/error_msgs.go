@@ -10,10 +10,11 @@ type ErrorResponse struct {
 const (
 	ErrInternalServerError = "Internal Server Error"
 	ErrInvalidRequest      = "Invalid request"
-	ErrUnauthorized        = "Unauthorized"
-	ErrForbidden           = "Forbidden"
 	ErrNotFound            = "Not Found"
 
-	ErrUserAlreadyExists  = "Email already registered"
-	ErrInvalidCredentials = "Invalid credentials"
+	//ErrUnauthorized        = "Unauthorized"
+	//ErrForbidden           = "Forbidden"
+
+	//ErrUserAlreadyExists  = "Email already registered"
+	//ErrInvalidCredentials = "Invalid credentials"
 )

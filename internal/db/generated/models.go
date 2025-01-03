@@ -16,6 +16,9 @@ type AccountType string
 const (
 	AccountTypeAsset     AccountType = "asset"
 	AccountTypeLiability AccountType = "liability"
+	AccountTypeEquity    AccountType = "equity"
+	AccountTypeRevenue   AccountType = "revenue"
+	AccountTypeExpense   AccountType = "expense"
 )
 
 func (e *AccountType) Scan(src interface{}) error {
@@ -146,7 +149,6 @@ type Account struct {
 	Type      AccountType
 	Metadata  []byte
 	LedgerID  int64
-	UserID    int64
 }
 
 type AccountBalance struct {
@@ -159,7 +161,6 @@ type AccountBalance struct {
 	EntryID       int64
 	TransactionID int64
 	LedgerID      int64
-	UserID        int64
 }
 
 type Entry struct {
@@ -181,7 +182,6 @@ type Ledger struct {
 	Name        string
 	Description pgtype.Text
 	Metadata    []byte
-	UserID      int64
 }
 
 type Transaction struct {
@@ -194,14 +194,4 @@ type Transaction struct {
 	Description pgtype.Text
 	Metadata    []byte
 	LedgerID    int64
-	UserID      int64
-}
-
-type User struct {
-	ID        int64
-	Uuid      string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	Email     string
-	Password  string
 }

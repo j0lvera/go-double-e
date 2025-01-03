@@ -11,9 +11,9 @@ import (
 type Querier interface {
 	//CreateAccount
 	//
-	//  insert into accounts (name, type, metadata, ledger_id, user_id)
-	//  values ($1, $2, $3, $4, $5)
-	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
+	//     insert into accounts (name, type, metadata, ledger_id)
+	//     values ($1, $2, $3, $4)
+	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	//CreateEntry
 	//
@@ -23,28 +23,22 @@ type Querier interface {
 	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
 	//CreateLedger
 	//
-	//  insert into ledgers (name, description, metadata, user_id)
-	//  values ($1, $2, $3, $4)
-	//  returning id, uuid, created_at, updated_at, name, description, metadata, user_id
+	//     insert into ledgers (name, description, metadata)
+	//     values ($1, $2, $3)
+	//  returning id, uuid, created_at, updated_at, name, description, metadata
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
 	//CreateTransaction
 	//
-	//  insert into transactions (description, metadata, ledger_id, user_id)
-	//  values ($1, $2, $3, $4)
-	//  returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
+	//     insert into transactions (description, metadata, ledger_id)
+	//     values ($1, $2, $3)
+	//  returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
-	//CreateUser
-	//
-	//     insert into users (email, password)
-	//     values ($1, $2)
-	//  returning id, uuid, created_at, updated_at, email, password
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	//GetAccount
 	//
-	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id, user_id
-	//  from accounts
-	//  where id = $1
-	//  limit 1
+	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
+	//    from accounts
+	//   where id = $1
+	//   limit 1
 	GetAccount(ctx context.Context, id int64) (Account, error)
 	//GetEntry
 	//
@@ -55,32 +49,24 @@ type Querier interface {
 	GetEntry(ctx context.Context, id int64) (Entry, error)
 	//GetLedger
 	//
-	//  select id, uuid, created_at, updated_at, name, description, metadata, user_id
-	//  from ledgers
-	//  where id = $1
-	//  limit 1
+	//  select id, uuid, created_at, updated_at, name, description, metadata
+	//    from ledgers
+	//   where id = $1
+	//   limit 1
 	GetLedger(ctx context.Context, id int64) (Ledger, error)
 	//GetTransaction
 	//
-	//  select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id, user_id
-	//  from transactions
-	//  where id = $1
-	//  limit 1
-	GetTransaction(ctx context.Context, id int64) (Transaction, error)
-	//GetUser
-	//
-	//  select id, uuid, created_at, updated_at, email, password
-	//    from users
+	//  select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+	//    from transactions
 	//   where id = $1
 	//   limit 1
-	GetUser(ctx context.Context, id int64) (User, error)
-	//GetUserByEmail
+	GetTransaction(ctx context.Context, id int64) (Transaction, error)
+	//ListLedgers
 	//
-	//  select id, uuid, created_at, updated_at, email, password
-	//    from users
-	//   where email = $1
-	//   limit 1
-	GetUserByEmail(ctx context.Context, email string) (User, error)
+	//  select id, uuid, created_at, updated_at, name, description, metadata
+	//    from ledgers
+	//   where metadata @> $1::jsonb
+	ListLedgers(ctx context.Context, dollar_1 []byte) ([]Ledger, error)
 }
 
 var _ Querier = (*Queries)(nil)

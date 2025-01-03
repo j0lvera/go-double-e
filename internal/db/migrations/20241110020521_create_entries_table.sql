@@ -5,7 +5,7 @@ create type entry_direction as enum ('debit', 'credit');
 create table entries
 (
     id             bigint generated always as identity primary key,
-    uuid           text            not null default concat('e_', nanoid(10)),
+    uuid           text            not null default nanoid(10),
 
     created_at     timestamptz     not null default current_timestamp,
     updated_at     timestamptz     not null default current_timestamp,
