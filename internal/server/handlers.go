@@ -130,10 +130,10 @@ func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// We use a custom response so we don't leak the password hash
 	res := struct {
 		Uuid string `json:"uuid"`
-		msg  string
+		Msg  string `json:"msg"`
 	}{
 		Uuid: user.Uuid,
-		msg:  "User created successfully",
+		Msg:  "User created successfully",
 	}
 
 	err = writeResponse(w, http.StatusCreated, res)
@@ -211,8 +211,10 @@ func (s *Server) HandleLoginUser(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	res := map[string]string{
-		"msg": "Logged in successfully",
+	res := struct {
+		Msg string `json:"msg"`
+	}{
+		Msg: "Logged in successfully",
 	}
 
 	err = writeResponse(w, http.StatusOK, res)
