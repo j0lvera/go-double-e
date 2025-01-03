@@ -30,4 +30,5 @@ func (s *Server) addRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health", s.HandleHealthCheck)
 
 	mux.HandleFunc("POST /users", s.HandleCreateUser)
+	mux.HandleFunc("POST /users/login", s.HandleLoginUser)
 }

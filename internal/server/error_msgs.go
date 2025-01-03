@@ -14,5 +14,6 @@ const (
 	ErrForbidden           = "Forbidden"
 	ErrNotFound            = "Not Found"
 
-	ErrUserAlreadyExists = "Email already registered"
+	ErrUserAlreadyExists  = "Email already registered"
+	ErrInvalidCredentials = "Invalid credentials"
 )

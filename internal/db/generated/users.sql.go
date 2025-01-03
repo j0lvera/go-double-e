@@ -10,7 +10,9 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-insert into users (email, password) values ($1, $2) returning id, uuid, created_at, updated_at, email, password
+   insert into users (email, password)
+   values ($1, $2)
+returning id, uuid, created_at, updated_at, email, password
 `
 
 type CreateUserParams struct {
@@ -20,7 +22,9 @@ type CreateUserParams struct {
 
 // CreateUser
 //
-//	insert into users (email, password) values ($1, $2) returning id, uuid, created_at, updated_at, email, password
+//	   insert into users (email, password)
+//	   values ($1, $2)
+//	returning id, uuid, created_at, updated_at, email, password
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.Password)
 	var i User
@@ -36,14 +40,47 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUser = `-- name: GetUser :one
-select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
+select id, uuid, created_at, updated_at, email, password
+  from users
+ where id = $1
+ limit 1
 `
 
 // GetUser
 //
-//	select id, uuid, created_at, updated_at, email, password from users where id = $1 limit 1
+//	select id, uuid, created_at, updated_at, email, password
+//	  from users
+//	 where id = $1
+//	 limit 1
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRow(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.Password,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+select id, uuid, created_at, updated_at, email, password
+  from users
+ where email = $1
+ limit 1
+`
+
+// GetUserByEmail
+//
+//	select id, uuid, created_at, updated_at, email, password
+//	  from users
+//	 where email = $1
+//	 limit 1
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
 		&i.ID,
