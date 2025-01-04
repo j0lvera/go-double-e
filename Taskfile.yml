@@ -65,8 +65,13 @@ tasks:
   test:
     desc: Run tests
     cmds:
-      - go test -v ./cmd/doubleed/
+      - go test -v ./...
   coverage:
     desc: Run tests with coverage
     cmds:
-      - go test -coverprofile=coverage.out ./cmd/doubleed/
+      - go test -coverprofile=coverage.out ./...
+
+  coverage:report:
+    desc: Generate coverage report
+    cmds:
+      - go tool cover -html=coverage.out
