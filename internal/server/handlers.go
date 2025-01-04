@@ -40,6 +40,14 @@ type CreateLedgerRequest struct {
 
 // HandleCreateLedger is the handler for creating a new ledger
 func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
+	startReqTime := time.Now()
+	slog.Debug("ledger.create.start",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"body", r.Body,
+		"remote_add", r.RemoteAddr,
+	)
+
 	// decode the request body
 	req, err := decode[CreateLedgerRequest](r)
 	if err != nil {
@@ -61,7 +69,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		}
 
 		slog.Info("unable to validate request", "error", err)
-		slog.Debug("request validation", "body", r.Body, "validation_errors", res, "error", err)
+		slog.Debug("request validation", "body", r.Body, "validation_errors", res)
 
 		writeError(w, res, http.StatusBadRequest)
 		return
@@ -77,7 +85,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 	metadataBytes, err := json.Marshal(req.Metadata)
 	if err != nil {
 		slog.Info("unable to marshal metadata", "error", err)
-		slog.Debug("metadata marshalling", "metadata", req.Metadata, "error", err)
+		slog.Debug("metadata marshalling", "metadata", req.Metadata)
 
 		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
@@ -141,14 +149,15 @@ type MetadataQuery struct {
 //   - ?metadata[key]=value
 //   - ?metadata[key]=value&metadata[key]=value
 //
-// if the metadata param return 0 results, the server will return 404.
+// if the metadata param returns 0 results, the server will return 404.
 // if no query string parameter is present, it will return bad request.
 func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	startReqTime := time.Now()
 	slog.Debug("ledger.list.start",
 		"method", r.Method,
 		"path", r.URL.Path,
-		"remoted_addr", r.RemoteAddr)
+		"remote_add", r.RemoteAddr,
+	)
 
 	// parse and marshal the metadata field
 	metadataBytes, err := parseMetadataParam(r)
@@ -215,9 +224,9 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	err = writeResponse(w, http.StatusOK, res)
 	if err != nil {
 		slog.Error("unable to write response", "error", err)
+		slog.Debug("response writing", "response", res)
 		return
 	}
-
 	slog.Info("ledgers listed", "count", ledgersCount)
 	slog.Debug(
 		"ledger.list.complete",
