@@ -40,13 +40,6 @@ type CreateLedgerRequest struct {
 
 // HandleCreateLedger is the handler for creating a new ledger
 func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
-	startReqTime := time.Now()
-	slog.Debug("ledger.create.start",
-		"method", r.Method,
-		"path", r.URL.Path,
-		"body", r.Body,
-		"remote_addr", r.RemoteAddr)
-
 	// decode the request body
 	req, err := decode[CreateLedgerRequest](r)
 	if err != nil {
