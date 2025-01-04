@@ -40,13 +40,6 @@ type CreateLedgerRequest struct {
 
 // HandleCreateLedger is the handler for creating a new ledger
 func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
-	startReqTime := time.Now()
-	slog.Debug("ledger.create.start",
-		"method", r.Method,
-		"path", r.URL.Path,
-		"body", r.Body,
-		"remote_addr", r.RemoteAddr)
-
 	// decode the request body
 	req, err := decode[CreateLedgerRequest](r)
 	if err != nil {
@@ -111,7 +104,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		"ledger creation",
 		"uuid", ledger.Uuid,
 		"name", ledger.Name,
-		"query_time", time.Since(startQueryTime)
+		"query_time", time.Since(startQueryTime),
 	)
 
 	// format the response
@@ -134,7 +127,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 	slog.Debug(
 		"ledger.create.complete",
 		"ledger_uuid", ledger.Uuid,
-		"duration", time.Since(startReqTime)
+		"duration", time.Since(startReqTime),
 	)
 }
 
@@ -148,7 +141,7 @@ type MetadataQuery struct {
 //   - ?metadata[key]=value
 //   - ?metadata[key]=value&metadata[key]=value
 //
-// if the metadata param is not present, it will be ignored and the server will return 404.
+// if the metadata param return 0 results, the server will return 404.
 // if no query string parameter is present, it will return bad request.
 func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	startReqTime := time.Now()
@@ -163,7 +156,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to parse metadata query param", "error", err)
 		slog.Debug("metadata parsing", "raw_query", r.URL.RawQuery)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -180,7 +173,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		slog.Debug(
 			"database querying",
 			"query_timeout", deadline,
-			"metadata_filter", string(metadataBytes)
+			"metadata_filter", string(metadataBytes),
 		)
 
 		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
@@ -193,7 +186,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		"database querying",
 		"ledgers_count", ledgersCount,
 		"metadata_filter", string(metadataBytes),
-		"query_time", time.Since(startQueryTime)
+		"query_time", time.Since(startQueryTime),
 	)
 
 	// no ledgers found, return 404
@@ -202,7 +195,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		slog.Debug(
 			"ledger.list.complete",
 			"ledgers_count", ledgersCount,
-			"duration", time.Since(startReqTime)
+			"duration", time.Since(startReqTime),
 		)
 
 		writeError(w, ErrNotFound, http.StatusNotFound)
@@ -210,11 +203,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// format the response
-	detail := struct {
-		Ledgers []dbGen.Ledger `json:"ledgers"`
-	}{
-		Ledgers: ledgers,
-	}
+	detail := ledgers
 
 	slog.Debug(
 		"response preparation",
@@ -233,6 +222,6 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	slog.Debug(
 		"ledger.list.complete",
 		"ledgers_count", ledgersCount,
-		"duration", time.Since(startReqTime)
+		"duration", time.Since(startReqTime),
 	)
 }

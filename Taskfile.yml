@@ -45,11 +45,6 @@ tasks:
       - goose -dir {{.MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.DATABASE_URL}}" reset
       - task: dev:setup
 
-  test:
-    desc: Run tests
-    cmds:
-      - go test -v ./...
-
   lint:
     desc: Run linters
     cmds:
@@ -65,3 +60,18 @@ tasks:
     desc: Stop development database
     cmds:
       - docker compose down
+
+  # Testing
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+  coverage:
+    desc: Run tests with coverage
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+
+  coverage:report:
+    desc: Generate coverage report
+    cmds:
+      - go tool cover -html=coverage.out
