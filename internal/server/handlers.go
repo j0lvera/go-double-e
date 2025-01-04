@@ -148,7 +148,7 @@ type MetadataQuery struct {
 //   - ?metadata[key]=value
 //   - ?metadata[key]=value&metadata[key]=value
 //
-// if the metadata param is not present, it will be ignored and the server will return 404.
+// if the metadata param return 0 results, the server will return 404.
 // if no query string parameter is present, it will return bad request.
 func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	startReqTime := time.Now()
@@ -163,7 +163,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to parse metadata query param", "error", err)
 		slog.Debug("metadata parsing", "raw_query", r.URL.RawQuery)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -210,11 +210,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// format the response
-	detail := struct {
-		Ledgers []dbGen.Ledger `json:"ledgers"`
-	}{
-		Ledgers: ledgers,
-	}
+	detail := ledgers
 
 	slog.Debug(
 		"response preparation",
