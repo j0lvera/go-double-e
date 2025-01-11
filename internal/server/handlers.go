@@ -139,6 +139,139 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+type UpdateLedgerRequest struct {
+	Name        string                 `json:"name,omitempty" validate:"max=255"`
+	Description string                 `json:"description,omitempty" validate:"max=255"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
+	startReqTime := time.Now()
+
+	slog.Debug("ledger.update.start",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"body", r.Body,
+		"remote_add", r.RemoteAddr,
+	)
+
+	ledgerUUID := r.PathValue("id")
+	currentLedger, err := s.client.Queries.GetLedger(r.Context(), ledgerUUID)
+	if err != nil {
+		slog.Error("unable to get ledger", "error", err)
+		slog.Debug("ledger retrieval", "uuid", ledgerUUID)
+		writeError(w, ErrNotFound, http.StatusNotFound)
+		return
+	}
+
+	// decode the request body
+	req, err := decode[UpdateLedgerRequest](r)
+	if err != nil {
+		slog.Info("unable to decode request body", "error", err)
+		slog.Debug("body decoding", "body", r.Body)
+		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
+		return
+	}
+
+	slog.Debug("body decoding", "request", req)
+
+	// validate the request
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	if err = validate.Struct(req); err != nil {
+		validationErrors := ParseValidationErrors(err)
+
+		res := map[string][]ValidationError{
+			"errors": validationErrors,
+		}
+
+		slog.Info("unable to validate request", "error", err)
+		slog.Debug("request validation", "body", r.Body)
+
+		writeError(w, res, http.StatusBadRequest)
+		return
+	}
+
+	ledgerParams := dbGen.UpdateLedgerParams{
+		Uuid: ledgerUUID,
+	}
+
+	if req.Name != "" {
+		ledgerParams.Name = req.Name
+	} else {
+		ledgerParams.Name = currentLedger.Name
+	}
+
+	if req.Description != "" {
+		// cast the description field to a pgtype.Text
+		description := pgtype.Text{
+			String: req.Description,
+			Valid:  true,
+		}
+		ledgerParams.Description = description
+	} else {
+		ledgerParams.Description = currentLedger.Description
+	}
+
+	if req.Metadata != nil {
+		// marshal the metadata field
+		metadataBytes, err := json.Marshal(req.Metadata)
+		if err != nil {
+			slog.Info("unable to marshal metadata", "error", err)
+			slog.Debug("metadata marshalling", "metadata", req.Metadata)
+
+			writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+			return
+		}
+		ledgerParams.Metadata = metadataBytes
+	} else {
+		ledgerParams.Metadata = currentLedger.Metadata
+	}
+
+	startQueryTime := time.Now()
+
+	ledger, err := s.client.Queries.UpdateLedger(r.Context(), ledgerParams)
+	if err != nil {
+		slog.Error("unable to update ledger", "error", err)
+		slog.Debug("ledger update", "params", ledgerParams, "error", err)
+
+		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	slog.Debug("ledger update",
+		"uuid", ledger.Uuid,
+		"name", ledger.Name,
+		"query_time", time.Since(startQueryTime),
+	)
+
+	// format the response
+	detail := struct {
+		UUID        string                 `json:"uuid"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
+		Metadata    map[string]interface{} `json:"metadata"`
+	}{
+		UUID:        ledger.Uuid,
+		Name:        ledger.Name,
+		Description: ledger.Description.String,
+		Metadata:    req.Metadata,
+	}
+
+	res := NewResponse("OK", 1, "OBJ", detail)
+	err = writeResponse(w, http.StatusOK, res)
+	if err != nil {
+		slog.Error("unable to write response", "error", err)
+		slog.Debug("response writing", "response", res, "error", err)
+		return
+	}
+	slog.Info("ledger updated", "ledger_uuid", ledger.Uuid, "name", ledger.Name)
+	slog.Debug(
+		"ledger.update.complete",
+		"ledger_uuid", ledger.Uuid,
+		"duration", time.Since(startReqTime),
+	)
+}
+
 type MetadataQuery struct {
 	Metadata map[string]any `schema:"metadata"`
 }

@@ -31,4 +31,5 @@ func (s *Server) addRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /ledgers", s.HandleCreateLedger)
 	mux.HandleFunc("GET /ledgers", s.HandleListLedgers)
+	mux.HandleFunc("PATCH /ledgers/{id}", s.HandleUpdateLedger)
 }

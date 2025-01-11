@@ -15,4 +15,5 @@ func SetupTestLogger() {
 
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+	handler.SetLevel(log.DebugLevel) // force debug level
 }

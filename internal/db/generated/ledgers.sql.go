@@ -46,7 +46,7 @@ func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (Led
 const getLedger = `-- name: GetLedger :one
 select id, uuid, created_at, updated_at, name, description, metadata
   from ledgers
- where id = $1
+ where uuid = $1
  limit 1
 `
 
@@ -54,10 +54,10 @@ select id, uuid, created_at, updated_at, name, description, metadata
 //
 //	select id, uuid, created_at, updated_at, name, description, metadata
 //	  from ledgers
-//	 where id = $1
+//	 where uuid = $1
 //	 limit 1
-func (q *Queries) GetLedger(ctx context.Context, id int64) (Ledger, error) {
-	row := q.db.QueryRow(ctx, getLedger, id)
+func (q *Queries) GetLedger(ctx context.Context, uuid string) (Ledger, error) {
+	row := q.db.QueryRow(ctx, getLedger, uuid)
 	var i Ledger
 	err := row.Scan(
 		&i.ID,
@@ -108,4 +108,48 @@ func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]Ledger, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateLedger = `-- name: UpdateLedger :one
+   update ledgers
+      set name        = coalesce($2, name),
+          description = coalesce($3, description),
+          metadata    = coalesce($4, metadata)
+    where uuid = $1
+returning id, uuid, created_at, updated_at, name, description, metadata
+`
+
+type UpdateLedgerParams struct {
+	Uuid        string
+	Name        string
+	Description pgtype.Text
+	Metadata    []byte
+}
+
+// UpdateLedger
+//
+//	   update ledgers
+//	      set name        = coalesce($2, name),
+//	          description = coalesce($3, description),
+//	          metadata    = coalesce($4, metadata)
+//	    where uuid = $1
+//	returning id, uuid, created_at, updated_at, name, description, metadata
+func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error) {
+	row := q.db.QueryRow(ctx, updateLedger,
+		arg.Uuid,
+		arg.Name,
+		arg.Description,
+		arg.Metadata,
+	)
+	var i Ledger
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.Description,
+		&i.Metadata,
+	)
+	return i, err
 }

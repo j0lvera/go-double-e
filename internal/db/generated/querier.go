@@ -51,9 +51,9 @@ type Querier interface {
 	//
 	//  select id, uuid, created_at, updated_at, name, description, metadata
 	//    from ledgers
-	//   where id = $1
+	//   where uuid = $1
 	//   limit 1
-	GetLedger(ctx context.Context, id int64) (Ledger, error)
+	GetLedger(ctx context.Context, uuid string) (Ledger, error)
 	//GetTransaction
 	//
 	//  select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
@@ -67,6 +67,15 @@ type Querier interface {
 	//    from ledgers
 	//   where metadata @> $1::jsonb
 	ListLedgers(ctx context.Context, dollar_1 []byte) ([]Ledger, error)
+	//UpdateLedger
+	//
+	//     update ledgers
+	//        set name        = coalesce($2, name),
+	//            description = coalesce($3, description),
+	//            metadata    = coalesce($4, metadata)
+	//      where uuid = $1
+	//  returning id, uuid, created_at, updated_at, name, description, metadata
+	UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error)
 }
 
 var _ Querier = (*Queries)(nil)

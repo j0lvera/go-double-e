@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/schema"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -84,4 +85,28 @@ func parseMetadataParam(r *http.Request) ([]byte, error) {
 	}
 
 	return metadataBytes, nil
+}
+
+// MapNonZeroFields
+// these two interface might have a different amount of fields, so we need to loop through
+// the one that has the most.
+// requirements:
+// - they have to be the same shape.
+// - each field should be of the same type.
+func MapNonZeroFields[T any, U any](src *T, dest *U) {
+	srcVal := reflect.ValueOf(src).Elem()
+	destVal := reflect.ValueOf(dest).Elem()
+	srcType := srcVal.Type()
+
+	for i := 0; i < srcVal.NumField(); i++ {
+		srcField := srcVal.Field(i)
+		srcFieldName := srcType.Field(i).Name
+		destField := destVal.FieldByName(srcFieldName)
+
+		if !srcField.IsZero() && destField.IsValid() && destField.CanSet() {
+			if srcField.Type() == destField.Type() {
+				destField.Set(srcField)
+			}
+		}
+	}
 }
