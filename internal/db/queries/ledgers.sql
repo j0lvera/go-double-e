@@ -19,7 +19,7 @@ returning *;
 returning *;
 
 -- name: ListLedgers :many
-select *
+select uuid, name, description, metadata
   from ledgers
  where metadata @> $1::jsonb;
 

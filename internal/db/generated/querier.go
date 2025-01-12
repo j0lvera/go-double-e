@@ -11,8 +11,12 @@ import (
 type Querier interface {
 	//CreateAccount
 	//
-	//     insert into accounts (name, type, metadata, ledger_id)
-	//     values ($1, $2, $3, $4)
+	//       with ledger as (select id
+	//                         from ledgers
+	//                        where uuid = $4::text)
+	//     insert
+	//       into accounts (name, type, metadata, ledger_id)
+	//     values ($1, $2, $3, (select id from ledger))
 	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	//CreateEntry
@@ -37,9 +41,9 @@ type Querier interface {
 	//
 	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 	//    from accounts
-	//   where id = $1
+	//   where uuid = $1
 	//   limit 1
-	GetAccount(ctx context.Context, id int64) (Account, error)
+	GetAccount(ctx context.Context, uuid string) (Account, error)
 	//GetEntry
 	//
 	//  select id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
@@ -61,12 +65,29 @@ type Querier interface {
 	//   where id = $1
 	//   limit 1
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
+	//ListAccounts
+	//
+	//    with ledger as (select id from ledgers where uuid = $2::text)
+	//  select uuid, name, type, metadata
+	//    from accounts
+	//   where ledger_id = (select id from ledger)
+	//     and metadata @> $1::jsonb
+	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]ListAccountsRow, error)
 	//ListLedgers
 	//
-	//  select id, uuid, created_at, updated_at, name, description, metadata
+	//  select uuid, name, description, metadata
 	//    from ledgers
 	//   where metadata @> $1::jsonb
-	ListLedgers(ctx context.Context, dollar_1 []byte) ([]Ledger, error)
+	ListLedgers(ctx context.Context, dollar_1 []byte) ([]ListLedgersRow, error)
+	//UpdateAccount
+	//
+	//     update accounts
+	//        set name     = coalesce($2, name),
+	//            type     = coalesce($3, type),
+	//            metadata = coalesce($4, metadata)
+	//      where uuid = $1
+	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
+	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	//UpdateLedger
 	//
 	//     update ledgers

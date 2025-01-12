@@ -11,27 +11,6 @@ import (
 	"time"
 )
 
-// HandleHealthCheck is a simple health check handler
-func (s *Server) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	res := struct {
-		Status string `json:"status"`
-	}{
-		Status: "ok",
-	}
-
-	// TODO: implement .Ping() on the Client to check the connection
-	//if err := s.client.DB().Ping(r.Context()); err != nil {
-	//	health.Status = "error"
-	//	w.WriteHeader(http.StatusServiceUnavailable)
-	//}
-
-	err := writeResponse(w, http.StatusOK, res)
-	if err != nil {
-		return
-	}
-	slog.Info("Health check")
-}
-
 type CreateLedgerRequest struct {
 	Name        string                 `json:"name" validate:"required,max=255"`
 	Description string                 `json:"description,omitempty" validate:"max=255"`
@@ -48,12 +27,12 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		"remote_add", r.RemoteAddr,
 	)
 
-	// decode the request body
-	req, err := decode[CreateLedgerRequest](r)
+	// Decode the request body
+	req, err := Decode[CreateLedgerRequest](r)
 	if err != nil {
-		slog.Info("unable to decode request body", "error", err)
+		slog.Info("unable to Decode request body", "error", err)
 		slog.Debug("body decoding", "body", r.Body, "error", err)
-		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -71,7 +50,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to validate request", "error", err)
 		slog.Debug("request validation", "body", r.Body, "validation_errors", res)
 
-		writeError(w, res, http.StatusBadRequest)
+		WriteError(w, res, http.StatusBadRequest)
 		return
 	}
 
@@ -87,7 +66,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to marshal metadata", "error", err)
 		slog.Debug("metadata marshalling", "metadata", req.Metadata)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -104,7 +83,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 		slog.Error("unable to create ledger", "error", err)
 		slog.Debug("ledger creation", "params", ledgerParams, "error", err)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -125,7 +104,7 @@ func (s *Server) HandleCreateLedger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := NewResponse("OK", 1, "OBJ", detail)
-	err = writeResponse(w, http.StatusCreated, res)
+	err = WriteResponse(w, http.StatusCreated, res)
 	if err != nil {
 		slog.Error("unable to write response", "error", err)
 		slog.Debug("response writing", "response", res, "error", err)
@@ -160,16 +139,16 @@ func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("unable to get ledger", "error", err)
 		slog.Debug("ledger retrieval", "uuid", ledgerUUID)
-		writeError(w, ErrNotFound, http.StatusNotFound)
+		WriteError(w, ErrNotFound, http.StatusNotFound)
 		return
 	}
 
-	// decode the request body
-	req, err := decode[UpdateLedgerRequest](r)
+	// Decode the request body
+	req, err := Decode[UpdateLedgerRequest](r)
 	if err != nil {
-		slog.Info("unable to decode request body", "error", err)
+		slog.Info("unable to Decode request body", "error", err)
 		slog.Debug("body decoding", "body", r.Body)
-		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -187,7 +166,7 @@ func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to validate request", "error", err)
 		slog.Debug("request validation", "body", r.Body)
 
-		writeError(w, res, http.StatusBadRequest)
+		WriteError(w, res, http.StatusBadRequest)
 		return
 	}
 
@@ -219,7 +198,7 @@ func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
 			slog.Info("unable to marshal metadata", "error", err)
 			slog.Debug("metadata marshalling", "metadata", req.Metadata)
 
-			writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+			WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 			return
 		}
 		ledgerParams.Metadata = metadataBytes
@@ -234,7 +213,7 @@ func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
 		slog.Error("unable to update ledger", "error", err)
 		slog.Debug("ledger update", "params", ledgerParams, "error", err)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -258,7 +237,7 @@ func (s *Server) HandleUpdateLedger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := NewResponse("OK", 1, "OBJ", detail)
-	err = writeResponse(w, http.StatusOK, res)
+	err = WriteResponse(w, http.StatusOK, res)
 	if err != nil {
 		slog.Error("unable to write response", "error", err)
 		slog.Debug("response writing", "response", res, "error", err)
@@ -298,7 +277,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 		slog.Info("unable to parse metadata query param", "error", err)
 		slog.Debug("metadata parsing", "raw_query", r.URL.RawQuery)
 
-		writeError(w, ErrInvalidRequest, http.StatusBadRequest)
+		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
@@ -318,7 +297,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 			"metadata_filter", string(metadataBytes),
 		)
 
-		writeError(w, ErrInternalServerError, http.StatusInternalServerError)
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -340,7 +319,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 			"duration", time.Since(startReqTime),
 		)
 
-		writeError(w, ErrNotFound, http.StatusNotFound)
+		WriteError(w, ErrNotFound, http.StatusNotFound)
 		return
 	}
 
@@ -354,7 +333,7 @@ func (s *Server) HandleListLedgers(w http.ResponseWriter, r *http.Request) {
 	)
 
 	res := NewResponse("OK", ledgersCount, "LIST", detail)
-	err = writeResponse(w, http.StatusOK, res)
+	err = WriteResponse(w, http.StatusOK, res)
 	if err != nil {
 		slog.Error("unable to write response", "error", err)
 		slog.Debug("response writing", "response", res)

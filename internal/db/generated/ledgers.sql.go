@@ -72,30 +72,34 @@ func (q *Queries) GetLedger(ctx context.Context, uuid string) (Ledger, error) {
 }
 
 const listLedgers = `-- name: ListLedgers :many
-select id, uuid, created_at, updated_at, name, description, metadata
+select uuid, name, description, metadata
   from ledgers
  where metadata @> $1::jsonb
 `
 
+type ListLedgersRow struct {
+	Uuid        string
+	Name        string
+	Description pgtype.Text
+	Metadata    []byte
+}
+
 // ListLedgers
 //
-//	select id, uuid, created_at, updated_at, name, description, metadata
+//	select uuid, name, description, metadata
 //	  from ledgers
 //	 where metadata @> $1::jsonb
-func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]Ledger, error) {
+func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]ListLedgersRow, error) {
 	rows, err := q.db.Query(ctx, listLedgers, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Ledger
+	var items []ListLedgersRow
 	for rows.Next() {
-		var i Ledger
+		var i ListLedgersRow
 		if err := rows.Scan(
-			&i.ID,
 			&i.Uuid,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.Name,
 			&i.Description,
 			&i.Metadata,
