@@ -7,29 +7,27 @@ package db
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createTransaction = `-- name: CreateTransaction :one
    insert into transactions (description, metadata, ledger_id)
-   values ($1, $2, $3)
+   values ($1::text, $2::jsonb, $3::bigint)
 returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 `
 
 type CreateTransactionParams struct {
-	Description pgtype.Text
-	Metadata    []byte
-	LedgerID    int64
+	Column1 string
+	Column2 []byte
+	Column3 int64
 }
 
 // CreateTransaction
 //
 //	   insert into transactions (description, metadata, ledger_id)
-//	   values ($1, $2, $3)
+//	   values ($1::text, $2::jsonb, $3::bigint)
 //	returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, createTransaction, arg.Description, arg.Metadata, arg.LedgerID)
+	row := q.db.QueryRow(ctx, createTransaction, arg.Column1, arg.Column2, arg.Column3)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -43,6 +41,46 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.LedgerID,
 	)
 	return i, err
+}
+
+const createTransactionWithEntries = `-- name: CreateTransactionWithEntries :one
+  with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
+select t
+  from create_transaction_with_entries(
+               $1::text,
+               (select ledger_id from ledger)::bigint,
+               $2::jsonb[],
+               $3::jsonb
+       ) as t
+`
+
+type CreateTransactionWithEntriesParams struct {
+	Description string
+	Entries     [][]byte
+	Metadata    []byte
+	LedgerUuid  string
+}
+
+// CreateTransactionWithEntries
+//
+//	  with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
+//	select t
+//	  from create_transaction_with_entries(
+//	               $1::text,
+//	               (select ledger_id from ledger)::bigint,
+//	               $2::jsonb[],
+//	               $3::jsonb
+//	       ) as t
+func (q *Queries) CreateTransactionWithEntries(ctx context.Context, arg CreateTransactionWithEntriesParams) (interface{}, error) {
+	row := q.db.QueryRow(ctx, createTransactionWithEntries,
+		arg.Description,
+		arg.Entries,
+		arg.Metadata,
+		arg.LedgerUuid,
+	)
+	var t interface{}
+	err := row.Scan(&t)
+	return t, err
 }
 
 const getTransaction = `-- name: GetTransaction :one

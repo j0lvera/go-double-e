@@ -34,9 +34,20 @@ type Querier interface {
 	//CreateTransaction
 	//
 	//     insert into transactions (description, metadata, ledger_id)
-	//     values ($1, $2, $3)
+	//     values ($1::text, $2::jsonb, $3::bigint)
 	//  returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	//CreateTransactionWithEntries
+	//
+	//    with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
+	//  select t
+	//    from create_transaction_with_entries(
+	//                 $1::text,
+	//                 (select ledger_id from ledger)::bigint,
+	//                 $2::jsonb[],
+	//                 $3::jsonb
+	//         ) as t
+	CreateTransactionWithEntries(ctx context.Context, arg CreateTransactionWithEntriesParams) (interface{}, error)
 	//GetAccount
 	//
 	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id

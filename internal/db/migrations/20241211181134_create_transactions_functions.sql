@@ -3,14 +3,23 @@
 create or replace function create_transaction_with_entries(
     p_description text,
     p_ledger_id bigint,
-    p_entries json[],
+    p_entries jsonb[],
     p_metadata jsonb default null
-) returns bigint as
+)
+    returns table
+            (
+                id          bigint,
+                uuid        text,
+                description text
+            )
+as
 $$
 declare
-    v_transaction_id bigint;
-    v_entry          json;
-    v_total_balance  bigint := 0;
+    v_transaction_id          bigint;
+    v_transaction_uuid        text;
+    v_transaction_description text;
+    v_entry                   jsonb;
+    v_total_balance           bigint := 0;
 begin
     -- calculate the total balance of the entries
     foreach v_entry in array p_entries
@@ -22,14 +31,17 @@ begin
         -- credit (liability): +amount
             select v_total_balance + (
                 case
-                    when (select type from accounts where id = (v_entry ->> 'account_id')::bigint) = 'asset'
+                    when (select a.type from accounts a where a.id = (v_entry ->> 'account_id')::bigint) =
+                         'asset'
                         then (v_entry ->> 'amount')::bigint
                     else -(v_entry ->> 'amount')::bigint
                     end
                 ) - (
                        case
-                           when (select type from accounts where id = (v_entry ->> 'account_id')::bigint) =
-                                'asset'
+                           when (select a.type
+                                   from accounts a
+                                  where a.id = (v_entry ->> 'account_id')::bigint) =
+                                'liability'
                                then (v_entry ->> 'amount')::bigint
                            else -(v_entry ->> 'amount')::bigint
                            end
@@ -44,7 +56,7 @@ begin
     -- create transaction and entries if balanced
        insert into transactions (description, ledger_id, metadata)
        values (p_description, p_ledger_id, p_metadata)
-    returning id into v_transaction_id;
+    returning transactions.id, transactions.uuid, transactions.description into v_transaction_id, v_transaction_uuid, v_transaction_description;
 
     foreach v_entry in array p_entries
         loop
@@ -54,13 +66,12 @@ begin
                    (v_transaction_id, (v_entry ->> 'account_id')::bigint, (v_entry ->> 'amount')::bigint,
                     'credit');
         end loop;
-
-    return v_transaction_id;
+    return query select v_transaction_id, v_transaction_uuid, v_transaction_description;
 end;
 $$ language plpgsql;
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-drop function create_transaction_with_entries(text, bigint, bigint, json[], jsonb);
+drop function create_transaction_with_entries(text, bigint, jsonb[], jsonb);
 -- +goose StatementEnd
