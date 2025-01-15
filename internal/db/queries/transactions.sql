@@ -4,6 +4,19 @@ select *
  where id = $1
  limit 1;
 
+-- name: UpdateTransaction :one
+   update transactions
+      set amount            = coalesce(sqlc.narg('amount')::bigint, amount),
+          date              = coalesce(sqlc.narg('date'), date),
+          description       = coalesce(sqlc.narg('description'), description),
+          metadata          = coalesce(sqlc.narg('metadata'), metadata),
+          credit_account_id = coalesce(sqlc.narg('credit_account_id'), credit_account_id),
+          debit_account_id  = coalesce(sqlc.narg('debit_account_id'), debit_account_id),
+          ledger_id         = coalesce(sqlc.narg('ledger_id'), ledger_id)
+    where uuid = sqlc.arg('uuid')
+returning *;
+
+
 -- name: CreateTransaction :one
      WITH credit_account AS (SELECT id
                                FROM accounts
@@ -30,3 +43,18 @@ select *
            (SELECT id FROM debit_account),
            (SELECT id FROM ledger_id))
 RETURNING *;
+
+-- -- name: ListAccounts :many
+--   with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
+-- select uuid, name, type, metadata
+--   from accounts
+--  where ledger_id = (select id from ledger)
+--    and metadata @> sqlc.arg(metadata)::jsonb;
+
+-- name: ListTransactions :many
+  with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
+select uuid, amount, date, description, metadata
+  from transactions
+ where ledger_id = (select id from ledger)
+   and metadata @> sqlc.arg(metadata)::jsonb;
+

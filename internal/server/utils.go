@@ -110,3 +110,13 @@ func MapNonZeroFields[T any, U any](src *T, dest *U) {
 		}
 	}
 }
+
+// ptrValue returns the value of a pointer if
+// it is not nil, otherwise it returns the zero
+// value of the type and false.
+func ptrValue[T any](p *T) (v T, valid bool) {
+	if p == nil {
+		return v, false
+	}
+	return *p, true
+}

@@ -18,13 +18,13 @@ type Querier interface {
 	//       into accounts (name, type, metadata, ledger_id)
 	//     values ($1, $2, $3, (select id from ledger))
 	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
-	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateAccount(ctx context.Context, arg CreateAccountParams) (*Account, error)
 	//CreateLedger
 	//
 	//     insert into ledgers (name, description, metadata)
 	//     values ($1, $2, $3)
 	//  returning id, uuid, created_at, updated_at, name, description, metadata
-	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
+	CreateLedger(ctx context.Context, arg CreateLedgerParams) (*Ledger, error)
 	//CreateTransaction
 	//
 	//       WITH credit_account AS (SELECT id
@@ -52,28 +52,28 @@ type Querier interface {
 	//             (SELECT id FROM debit_account),
 	//             (SELECT id FROM ledger_id))
 	//  RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
-	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (*Transaction, error)
 	//GetAccount
 	//
 	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 	//    from accounts
 	//   where uuid = $1
 	//   limit 1
-	GetAccount(ctx context.Context, uuid string) (Account, error)
+	GetAccount(ctx context.Context, uuid string) (*Account, error)
 	//GetLedger
 	//
 	//  select id, uuid, created_at, updated_at, name, description, metadata
 	//    from ledgers
 	//   where uuid = $1
 	//   limit 1
-	GetLedger(ctx context.Context, uuid string) (Ledger, error)
+	GetLedger(ctx context.Context, uuid string) (*Ledger, error)
 	//GetTransaction
 	//
 	//  select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	//    from transactions
 	//   where id = $1
 	//   limit 1
-	GetTransaction(ctx context.Context, id int64) (Transaction, error)
+	GetTransaction(ctx context.Context, id int64) (*Transaction, error)
 	//ListAccounts
 	//
 	//    with ledger as (select id from ledgers where uuid = $2::text)
@@ -81,13 +81,27 @@ type Querier interface {
 	//    from accounts
 	//   where ledger_id = (select id from ledger)
 	//     and metadata @> $1::jsonb
-	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]ListAccountsRow, error)
+	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]*ListAccountsRow, error)
 	//ListLedgers
 	//
 	//  select uuid, name, description, metadata
 	//    from ledgers
 	//   where metadata @> $1::jsonb
-	ListLedgers(ctx context.Context, dollar_1 []byte) ([]ListLedgersRow, error)
+	ListLedgers(ctx context.Context, dollar_1 []byte) ([]*ListLedgersRow, error)
+	// -- name: ListAccounts :many
+	//   with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
+	// select uuid, name, type, metadata
+	//   from accounts
+	//  where ledger_id = (select id from ledger)
+	//    and metadata @> sqlc.arg(metadata)::jsonb;
+	//
+	//
+	//    with ledger as (select id from ledgers where uuid = $2::text)
+	//  select uuid, amount, date, description, metadata
+	//    from transactions
+	//   where ledger_id = (select id from ledger)
+	//     and metadata @> $1::jsonb
+	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]*ListTransactionsRow, error)
 	//UpdateAccount
 	//
 	//     update accounts
@@ -96,7 +110,7 @@ type Querier interface {
 	//            metadata = coalesce($4, metadata)
 	//      where uuid = $1
 	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
-	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
+	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (*Account, error)
 	//UpdateLedger
 	//
 	//     update ledgers
@@ -105,7 +119,20 @@ type Querier interface {
 	//            metadata    = coalesce($4, metadata)
 	//      where uuid = $1
 	//  returning id, uuid, created_at, updated_at, name, description, metadata
-	UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error)
+	UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (*Ledger, error)
+	//UpdateTransaction
+	//
+	//     update transactions
+	//        set amount            = coalesce($1::bigint, amount),
+	//            date              = coalesce($2, date),
+	//            description       = coalesce($3, description),
+	//            metadata          = coalesce($4, metadata),
+	//            credit_account_id = coalesce($5, credit_account_id),
+	//            debit_account_id  = coalesce($6, debit_account_id),
+	//            ledger_id         = coalesce($7, ledger_id)
+	//      where uuid = $8
+	//  returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
+	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (*Transaction, error)
 }
 
 var _ Querier = (*Queries)(nil)

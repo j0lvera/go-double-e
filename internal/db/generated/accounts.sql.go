@@ -35,7 +35,7 @@ type CreateAccountParams struct {
 //	     into accounts (name, type, metadata, ledger_id)
 //	   values ($1, $2, $3, (select id from ledger))
 //	returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
-func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (*Account, error) {
 	row := q.db.QueryRow(ctx, createAccount,
 		arg.Name,
 		arg.Type,
@@ -53,7 +53,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Metadata,
 		&i.LedgerID,
 	)
-	return i, err
+	return &i, err
 }
 
 const getAccount = `-- name: GetAccount :one
@@ -69,7 +69,7 @@ select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 //	  from accounts
 //	 where uuid = $1
 //	 limit 1
-func (q *Queries) GetAccount(ctx context.Context, uuid string) (Account, error) {
+func (q *Queries) GetAccount(ctx context.Context, uuid string) (*Account, error) {
 	row := q.db.QueryRow(ctx, getAccount, uuid)
 	var i Account
 	err := row.Scan(
@@ -82,7 +82,7 @@ func (q *Queries) GetAccount(ctx context.Context, uuid string) (Account, error) 
 		&i.Metadata,
 		&i.LedgerID,
 	)
-	return i, err
+	return &i, err
 }
 
 const listAccounts = `-- name: ListAccounts :many
@@ -112,13 +112,13 @@ type ListAccountsRow struct {
 //	  from accounts
 //	 where ledger_id = (select id from ledger)
 //	   and metadata @> $1::jsonb
-func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]ListAccountsRow, error) {
+func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]*ListAccountsRow, error) {
 	rows, err := q.db.Query(ctx, listAccounts, arg.Metadata, arg.LedgerUuid)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAccountsRow
+	var items []*ListAccountsRow
 	for rows.Next() {
 		var i ListAccountsRow
 		if err := rows.Scan(
@@ -129,7 +129,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ type UpdateAccountParams struct {
 //	          metadata = coalesce($4, metadata)
 //	    where uuid = $1
 //	returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
-func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
+func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (*Account, error) {
 	row := q.db.QueryRow(ctx, updateAccount,
 		arg.Uuid,
 		arg.Name,
@@ -179,5 +179,5 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.Metadata,
 		&i.LedgerID,
 	)
-	return i, err
+	return &i, err
 }

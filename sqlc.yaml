@@ -10,3 +10,4 @@ sql:
         sql_package: "pgx/v5"
         emit_interface: true
         emit_sql_as_comment: true
+        emit_result_struct_pointers: true

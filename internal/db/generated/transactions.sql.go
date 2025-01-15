@@ -76,7 +76,7 @@ type CreateTransactionParams struct {
 //	           (SELECT id FROM debit_account),
 //	           (SELECT id FROM ledger_id))
 //	RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
-func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
+func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (*Transaction, error) {
 	row := q.db.QueryRow(ctx, createTransaction,
 		arg.Amount,
 		arg.Date,
@@ -100,7 +100,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.DebitAccountID,
 		&i.LedgerID,
 	)
-	return i, err
+	return &i, err
 }
 
 const getTransaction = `-- name: GetTransaction :one
@@ -116,7 +116,7 @@ select id, uuid, created_at, updated_at, amount, date, description, metadata, cr
 //	  from transactions
 //	 where id = $1
 //	 limit 1
-func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, error) {
+func (q *Queries) GetTransaction(ctx context.Context, id int64) (*Transaction, error) {
 	row := q.db.QueryRow(ctx, getTransaction, id)
 	var i Transaction
 	err := row.Scan(
@@ -132,5 +132,133 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 		&i.DebitAccountID,
 		&i.LedgerID,
 	)
-	return i, err
+	return &i, err
+}
+
+const listTransactions = `-- name: ListTransactions :many
+
+  with ledger as (select id from ledgers where uuid = $2::text)
+select uuid, amount, date, description, metadata
+  from transactions
+ where ledger_id = (select id from ledger)
+   and metadata @> $1::jsonb
+`
+
+type ListTransactionsParams struct {
+	Metadata   []byte
+	LedgerUuid string
+}
+
+type ListTransactionsRow struct {
+	Uuid        string
+	Amount      int64
+	Date        pgtype.Date
+	Description pgtype.Text
+	Metadata    []byte
+}
+
+// -- name: ListAccounts :many
+//
+//	with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
+//
+// select uuid, name, type, metadata
+//
+//	 from accounts
+//	where ledger_id = (select id from ledger)
+//	  and metadata @> sqlc.arg(metadata)::jsonb;
+//
+//
+//	  with ledger as (select id from ledgers where uuid = $2::text)
+//	select uuid, amount, date, description, metadata
+//	  from transactions
+//	 where ledger_id = (select id from ledger)
+//	   and metadata @> $1::jsonb
+func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]*ListTransactionsRow, error) {
+	rows, err := q.db.Query(ctx, listTransactions, arg.Metadata, arg.LedgerUuid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListTransactionsRow
+	for rows.Next() {
+		var i ListTransactionsRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Amount,
+			&i.Date,
+			&i.Description,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateTransaction = `-- name: UpdateTransaction :one
+   update transactions
+      set amount            = coalesce($1::bigint, amount),
+          date              = coalesce($2, date),
+          description       = coalesce($3, description),
+          metadata          = coalesce($4, metadata),
+          credit_account_id = coalesce($5, credit_account_id),
+          debit_account_id  = coalesce($6, debit_account_id),
+          ledger_id         = coalesce($7, ledger_id)
+    where uuid = $8
+returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
+`
+
+type UpdateTransactionParams struct {
+	Amount          pgtype.Int8
+	Date            pgtype.Date
+	Description     pgtype.Text
+	Metadata        []byte
+	CreditAccountID pgtype.Int8
+	DebitAccountID  pgtype.Int8
+	LedgerID        pgtype.Int8
+	Uuid            string
+}
+
+// UpdateTransaction
+//
+//	   update transactions
+//	      set amount            = coalesce($1::bigint, amount),
+//	          date              = coalesce($2, date),
+//	          description       = coalesce($3, description),
+//	          metadata          = coalesce($4, metadata),
+//	          credit_account_id = coalesce($5, credit_account_id),
+//	          debit_account_id  = coalesce($6, debit_account_id),
+//	          ledger_id         = coalesce($7, ledger_id)
+//	    where uuid = $8
+//	returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
+func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (*Transaction, error) {
+	row := q.db.QueryRow(ctx, updateTransaction,
+		arg.Amount,
+		arg.Date,
+		arg.Description,
+		arg.Metadata,
+		arg.CreditAccountID,
+		arg.DebitAccountID,
+		arg.LedgerID,
+		arg.Uuid,
+	)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Amount,
+		&i.Date,
+		&i.Description,
+		&i.Metadata,
+		&i.CreditAccountID,
+		&i.DebitAccountID,
+		&i.LedgerID,
+	)
+	return &i, err
 }
