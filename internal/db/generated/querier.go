@@ -19,12 +19,6 @@ type Querier interface {
 	//     values ($1, $2, $3, (select id from ledger))
 	//  returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
-	//CreateEntry
-	//
-	//  insert into entries (amount, direction, transaction_id, account_id)
-	//  values ($1, $2, $3, $4)
-	//  returning id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
-	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
 	//CreateLedger
 	//
 	//     insert into ledgers (name, description, metadata)
@@ -33,21 +27,32 @@ type Querier interface {
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
 	//CreateTransaction
 	//
-	//     insert into transactions (description, metadata, ledger_id)
-	//     values ($1::text, $2::jsonb, $3::bigint)
-	//  returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+	//       WITH credit_account AS (SELECT id
+	//                                 FROM accounts
+	//                                WHERE accounts.uuid = $5::text),
+	//            debit_account AS (SELECT id
+	//                                FROM accounts
+	//                               WHERE accounts.uuid = $6::text),
+	//            ledger_id AS (SELECT id
+	//                            FROM ledgers
+	//                           WHERE ledgers.uuid = $7::text)
+	//     INSERT
+	//       INTO transactions (amount,
+	//                          date,
+	//                          description,
+	//                          metadata,
+	//                          credit_account_id,
+	//                          debit_account_id,
+	//                          ledger_id)
+	//     VALUES ($1::bigint,
+	//             $2::date,
+	//             $3::text,
+	//             $4::jsonb,
+	//             (SELECT id FROM credit_account),
+	//             (SELECT id FROM debit_account),
+	//             (SELECT id FROM ledger_id))
+	//  RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
-	//CreateTransactionWithEntries
-	//
-	//    with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
-	//  select t
-	//    from create_transaction_with_entries(
-	//                 $1::text,
-	//                 (select ledger_id from ledger)::bigint,
-	//                 $2::jsonb[],
-	//                 $3::jsonb
-	//         ) as t
-	CreateTransactionWithEntries(ctx context.Context, arg CreateTransactionWithEntriesParams) (interface{}, error)
 	//GetAccount
 	//
 	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
@@ -55,13 +60,6 @@ type Querier interface {
 	//   where uuid = $1
 	//   limit 1
 	GetAccount(ctx context.Context, uuid string) (Account, error)
-	//GetEntry
-	//
-	//  select id, uuid, created_at, updated_at, amount, direction, transaction_id, account_id
-	//  from entries
-	//  where id = $1
-	//  limit 1
-	GetEntry(ctx context.Context, id int64) (Entry, error)
 	//GetLedger
 	//
 	//  select id, uuid, created_at, updated_at, name, description, metadata
@@ -71,7 +69,7 @@ type Querier interface {
 	GetLedger(ctx context.Context, uuid string) (Ledger, error)
 	//GetTransaction
 	//
-	//  select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+	//  select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	//    from transactions
 	//   where id = $1
 	//   limit 1

@@ -7,84 +7,104 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createTransaction = `-- name: CreateTransaction :one
-   insert into transactions (description, metadata, ledger_id)
-   values ($1::text, $2::jsonb, $3::bigint)
-returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+     WITH credit_account AS (SELECT id
+                               FROM accounts
+                              WHERE accounts.uuid = $5::text),
+          debit_account AS (SELECT id
+                              FROM accounts
+                             WHERE accounts.uuid = $6::text),
+          ledger_id AS (SELECT id
+                          FROM ledgers
+                         WHERE ledgers.uuid = $7::text)
+   INSERT
+     INTO transactions (amount,
+                        date,
+                        description,
+                        metadata,
+                        credit_account_id,
+                        debit_account_id,
+                        ledger_id)
+   VALUES ($1::bigint,
+           $2::date,
+           $3::text,
+           $4::jsonb,
+           (SELECT id FROM credit_account),
+           (SELECT id FROM debit_account),
+           (SELECT id FROM ledger_id))
+RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 `
 
 type CreateTransactionParams struct {
-	Column1 string
-	Column2 []byte
-	Column3 int64
+	Amount            int64
+	Date              pgtype.Date
+	Description       string
+	Metadata          []byte
+	CreditAccountUuid string
+	DebitAccountUuid  string
+	LedgerUuid        string
 }
 
 // CreateTransaction
 //
-//	   insert into transactions (description, metadata, ledger_id)
-//	   values ($1::text, $2::jsonb, $3::bigint)
-//	returning id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+//	     WITH credit_account AS (SELECT id
+//	                               FROM accounts
+//	                              WHERE accounts.uuid = $5::text),
+//	          debit_account AS (SELECT id
+//	                              FROM accounts
+//	                             WHERE accounts.uuid = $6::text),
+//	          ledger_id AS (SELECT id
+//	                          FROM ledgers
+//	                         WHERE ledgers.uuid = $7::text)
+//	   INSERT
+//	     INTO transactions (amount,
+//	                        date,
+//	                        description,
+//	                        metadata,
+//	                        credit_account_id,
+//	                        debit_account_id,
+//	                        ledger_id)
+//	   VALUES ($1::bigint,
+//	           $2::date,
+//	           $3::text,
+//	           $4::jsonb,
+//	           (SELECT id FROM credit_account),
+//	           (SELECT id FROM debit_account),
+//	           (SELECT id FROM ledger_id))
+//	RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, createTransaction, arg.Column1, arg.Column2, arg.Column3)
+	row := q.db.QueryRow(ctx, createTransaction,
+		arg.Amount,
+		arg.Date,
+		arg.Description,
+		arg.Metadata,
+		arg.CreditAccountUuid,
+		arg.DebitAccountUuid,
+		arg.LedgerUuid,
+	)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
 		&i.Uuid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Status,
+		&i.Amount,
 		&i.Date,
 		&i.Description,
 		&i.Metadata,
+		&i.CreditAccountID,
+		&i.DebitAccountID,
 		&i.LedgerID,
 	)
 	return i, err
 }
 
-const createTransactionWithEntries = `-- name: CreateTransactionWithEntries :one
-  with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
-select t
-  from create_transaction_with_entries(
-               $1::text,
-               (select ledger_id from ledger)::bigint,
-               $2::jsonb[],
-               $3::jsonb
-       ) as t
-`
-
-type CreateTransactionWithEntriesParams struct {
-	Description string
-	Entries     [][]byte
-	Metadata    []byte
-	LedgerUuid  string
-}
-
-// CreateTransactionWithEntries
-//
-//	  with ledger as (select ledgers.id as ledger_id from ledgers where ledgers.uuid = $4::text)
-//	select t
-//	  from create_transaction_with_entries(
-//	               $1::text,
-//	               (select ledger_id from ledger)::bigint,
-//	               $2::jsonb[],
-//	               $3::jsonb
-//	       ) as t
-func (q *Queries) CreateTransactionWithEntries(ctx context.Context, arg CreateTransactionWithEntriesParams) (interface{}, error) {
-	row := q.db.QueryRow(ctx, createTransactionWithEntries,
-		arg.Description,
-		arg.Entries,
-		arg.Metadata,
-		arg.LedgerUuid,
-	)
-	var t interface{}
-	err := row.Scan(&t)
-	return t, err
-}
-
 const getTransaction = `-- name: GetTransaction :one
-select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
   from transactions
  where id = $1
  limit 1
@@ -92,7 +112,7 @@ select id, uuid, created_at, updated_at, status, date, description, metadata, le
 
 // GetTransaction
 //
-//	select id, uuid, created_at, updated_at, status, date, description, metadata, ledger_id
+//	select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 //	  from transactions
 //	 where id = $1
 //	 limit 1
@@ -104,10 +124,12 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 		&i.Uuid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Status,
+		&i.Amount,
 		&i.Date,
 		&i.Description,
 		&i.Metadata,
+		&i.CreditAccountID,
+		&i.DebitAccountID,
 		&i.LedgerID,
 	)
 	return i, err
