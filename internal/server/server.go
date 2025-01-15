@@ -43,4 +43,5 @@ func (s *Server) addRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /transactions", s.HandleListTransactions)
 	mux.HandleFunc("POST /transactions", s.HandleCreateTransaction)
 	mux.HandleFunc("PATCH /transactions/{uuid}", s.HandleUpdateTransaction)
+	mux.HandleFunc("DELETE /transactions/{uuid}", s.HandleDeleteTransaction)
 }

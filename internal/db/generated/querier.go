@@ -53,6 +53,12 @@ type Querier interface {
 	//             (SELECT id FROM ledger_id))
 	//  RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (*Transaction, error)
+	//DeleteTransaction
+	//
+	//  delete
+	//    from transactions
+	//   where uuid = $1
+	DeleteTransaction(ctx context.Context, uuid string) error
 	//GetAccount
 	//
 	//  select id, uuid, created_at, updated_at, name, type, metadata, ledger_id
@@ -88,13 +94,7 @@ type Querier interface {
 	//    from ledgers
 	//   where metadata @> $1::jsonb
 	ListLedgers(ctx context.Context, dollar_1 []byte) ([]*ListLedgersRow, error)
-	// -- name: ListAccounts :many
-	//   with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
-	// select uuid, name, type, metadata
-	//   from accounts
-	//  where ledger_id = (select id from ledger)
-	//    and metadata @> sqlc.arg(metadata)::jsonb;
-	//
+	//ListTransactions
 	//
 	//    with ledger as (select id from ledgers where uuid = $2::text)
 	//  select uuid, amount, date, description, metadata
@@ -122,15 +122,18 @@ type Querier interface {
 	UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (*Ledger, error)
 	//UpdateTransaction
 	//
+	//       with credit_account as (select id from accounts where accounts.uuid = $6::text),
+	//            debit_account as (select id from accounts where accounts.uuid = $7::text),
+	//            ledger as (select id from ledgers where ledgers.uuid = $8::text)
 	//     update transactions
 	//        set amount            = coalesce($1::bigint, amount),
 	//            date              = coalesce($2, date),
 	//            description       = coalesce($3, description),
 	//            metadata          = coalesce($4, metadata),
-	//            credit_account_id = coalesce($5, credit_account_id),
-	//            debit_account_id  = coalesce($6, debit_account_id),
-	//            ledger_id         = coalesce($7, ledger_id)
-	//      where uuid = $8
+	//            credit_account_id = coalesce((select id from credit_account), credit_account_id),
+	//            debit_account_id  = coalesce((select id from debit_account), debit_account_id),
+	//            ledger_id         = coalesce((select id from ledger), ledger_id)
+	//      where transactions.uuid = $5
 	//  returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (*Transaction, error)
 }

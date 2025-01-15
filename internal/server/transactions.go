@@ -208,13 +208,13 @@ func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) 
 }
 
 type UpdateTransactionRequest struct {
-	Amount          *int64                  `json:"amount,omitempty"`
-	Date            *time.Time              `json:"date,omitempty"`
-	Description     *pgtype.Text            `json:"description,omitempty"`
-	Metadata        *map[string]interface{} `json:"metadata,omitempty"`
-	CreditAccountID *int64                  `json:"credit_account_uuid,omitempty"`
-	DebitAccountID  *int64                  `json:"debit_account_uuid,omitempty"`
-	LedgerID        *int64                  `json:"ledger_uuid,omitempty"`
+	Amount            *int64                  `json:"amount,omitempty"`
+	Date              *time.Time              `json:"date,omitempty"`
+	Description       *pgtype.Text            `json:"description,omitempty"`
+	Metadata          *map[string]interface{} `json:"metadata,omitempty"`
+	CreditAccountUuid *pgtype.Text            `json:"credit_account_uuid,omitempty"`
+	DebitAccountUuid  *pgtype.Text            `json:"debit_account_uuid,omitempty"`
+	LedgerID          *pgtype.Text            `json:"ledger_uuid,omitempty"`
 }
 
 func (s *Server) HandleUpdateTransaction(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +239,13 @@ func (s *Server) HandleUpdateTransaction(w http.ResponseWriter, r *http.Request)
 
 	slog.Debug("body decoding", "request", req)
 
+	// return invalid request on empty body, e.g., {}
+	if isEmptyJSON(req) {
+		slog.Info("empty update request body")
+		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
+		return
+	}
+
 	// validate the request
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err = validate.Struct(req); err != nil {
@@ -256,13 +263,16 @@ func (s *Server) HandleUpdateTransaction(w http.ResponseWriter, r *http.Request)
 	}
 
 	// marshal the metadata field
-	metadataBytes, err := json.Marshal(req.Metadata)
-	if err != nil {
-		slog.Info("unable to marshal metadata", "error", err)
-		slog.Debug("metadata marshaling", "metadata", req.Metadata)
-
-		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
-		return
+	metadataValue, metadataIsValid := ptrValue(req.Metadata)
+	var metadataBytes []byte
+	if metadataIsValid {
+		metadataBytes, err = json.Marshal(metadataValue)
+		if err != nil {
+			slog.Info("unable to marshal metadata", "error", err)
+			slog.Debug("metadata marshaling", "metadata", metadataValue)
+			WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// cast the amount to pgtype.Int8
@@ -287,35 +297,35 @@ func (s *Server) HandleUpdateTransaction(w http.ResponseWriter, r *http.Request)
 	}
 
 	// cast the credit account id to pgtype.int8
-	creditIdValue, creditIdIsValid := ptrValue(req.CreditAccountID)
-	creditAccountID := pgtype.Int8{
-		Int64: creditIdValue,
-		Valid: creditIdIsValid,
+	creditIdValue, creditIdIsValid := ptrValue(req.CreditAccountUuid)
+	creditAccountUuid := pgtype.Text{
+		String: creditIdValue.String,
+		Valid:  creditIdIsValid,
 	}
 
 	// cast the debit account id to pgtype.int8
-	debitIdValue, debitIdIsValid := ptrValue(req.DebitAccountID)
-	debitAccountID := pgtype.Int8{
-		Int64: debitIdValue,
-		Valid: debitIdIsValid,
+	debitIdValue, debitIdIsValid := ptrValue(req.DebitAccountUuid)
+	debitAccountUuid := pgtype.Text{
+		String: debitIdValue.String,
+		Valid:  debitIdIsValid,
 	}
 
 	// cast the ledger id to pgtype.int8
 	ledgerIdValue, ledgerIdIsValid := ptrValue(req.LedgerID)
-	ledgerID := pgtype.Int8{
-		Int64: ledgerIdValue,
-		Valid: ledgerIdIsValid,
+	ledgerUuid := pgtype.Text{
+		String: ledgerIdValue.String,
+		Valid:  ledgerIdIsValid,
 	}
 
 	txnParams := dbGen.UpdateTransactionParams{
-		Uuid:            txnUUID,
-		Amount:          amount,
-		Date:            date,
-		Description:     description,
-		Metadata:        metadataBytes,
-		CreditAccountID: creditAccountID,
-		DebitAccountID:  debitAccountID,
-		LedgerID:        ledgerID,
+		Uuid:              txnUUID,
+		Amount:            amount,
+		Date:              date,
+		Description:       description,
+		Metadata:          metadataBytes,
+		CreditAccountUuid: creditAccountUuid,
+		DebitAccountUuid:  debitAccountUuid,
+		LedgerUuid:        ledgerUuid,
 	}
 
 	startQueryTime := time.Now()
@@ -361,6 +371,56 @@ func (s *Server) HandleUpdateTransaction(w http.ResponseWriter, r *http.Request)
 	slog.Debug(
 		"transaction.update.complete",
 		"uuid", txn.Uuid,
+		"duration", time.Since(startReqTime),
+	)
+}
+
+func (s *Server) HandleDeleteTransaction(w http.ResponseWriter, r *http.Request) {
+	startReqTime := time.Now()
+	slog.Debug("transaction.delete.start",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"remote_add", r.RemoteAddr,
+	)
+
+	txnUUID := r.PathValue("uuid")
+	if txnUUID == "" {
+		slog.Info("transaction uuid is required")
+		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
+		return
+	}
+
+	startQueryTime := time.Now()
+
+	err := s.client.Queries.DeleteTransaction(r.Context(), txnUUID)
+	if err != nil {
+		slog.Error("unable to delete transaction", "error", err)
+		slog.Debug("transaction deletion", "uuid", txnUUID)
+
+		deadline, _ := r.Context().Deadline()
+		slog.Debug("transaction deletion", "query_timeout", deadline)
+
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	slog.Debug("transaction deletion",
+		"uuid", txnUUID,
+		"query_time", time.Since(startQueryTime),
+	)
+
+	res := NewResponse("OK", 1, "OBJ", nil)
+	err = WriteResponse(w, http.StatusNoContent, res)
+	if err != nil {
+		slog.Error("unable to write response", "error", err)
+		slog.Debug("response writing", "response", res)
+		return
+	}
+
+	slog.Info("transaction deleted", "uuid", txnUUID)
+	slog.Debug(
+		"transaction.delete.complete",
+		"uuid", txnUUID,
 		"duration", time.Since(startReqTime),
 	)
 }

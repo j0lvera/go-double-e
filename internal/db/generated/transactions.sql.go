@@ -103,6 +103,22 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return &i, err
 }
 
+const deleteTransaction = `-- name: DeleteTransaction :exec
+delete
+  from transactions
+ where uuid = $1
+`
+
+// DeleteTransaction
+//
+//	delete
+//	  from transactions
+//	 where uuid = $1
+func (q *Queries) DeleteTransaction(ctx context.Context, uuid string) error {
+	_, err := q.db.Exec(ctx, deleteTransaction, uuid)
+	return err
+}
+
 const getTransaction = `-- name: GetTransaction :one
 select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
   from transactions
@@ -136,7 +152,6 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (*Transaction, e
 }
 
 const listTransactions = `-- name: ListTransactions :many
-
   with ledger as (select id from ledgers where uuid = $2::text)
 select uuid, amount, date, description, metadata
   from transactions
@@ -157,16 +172,7 @@ type ListTransactionsRow struct {
 	Metadata    []byte
 }
 
-// -- name: ListAccounts :many
-//
-//	with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
-//
-// select uuid, name, type, metadata
-//
-//	 from accounts
-//	where ledger_id = (select id from ledger)
-//	  and metadata @> sqlc.arg(metadata)::jsonb;
-//
+// ListTransactions
 //
 //	  with ledger as (select id from ledgers where uuid = $2::text)
 //	select uuid, amount, date, description, metadata
@@ -200,40 +206,46 @@ func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsPara
 }
 
 const updateTransaction = `-- name: UpdateTransaction :one
+     with credit_account as (select id from accounts where accounts.uuid = $6::text),
+          debit_account as (select id from accounts where accounts.uuid = $7::text),
+          ledger as (select id from ledgers where ledgers.uuid = $8::text)
    update transactions
       set amount            = coalesce($1::bigint, amount),
           date              = coalesce($2, date),
           description       = coalesce($3, description),
           metadata          = coalesce($4, metadata),
-          credit_account_id = coalesce($5, credit_account_id),
-          debit_account_id  = coalesce($6, debit_account_id),
-          ledger_id         = coalesce($7, ledger_id)
-    where uuid = $8
+          credit_account_id = coalesce((select id from credit_account), credit_account_id),
+          debit_account_id  = coalesce((select id from debit_account), debit_account_id),
+          ledger_id         = coalesce((select id from ledger), ledger_id)
+    where transactions.uuid = $5
 returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 `
 
 type UpdateTransactionParams struct {
-	Amount          pgtype.Int8
-	Date            pgtype.Date
-	Description     pgtype.Text
-	Metadata        []byte
-	CreditAccountID pgtype.Int8
-	DebitAccountID  pgtype.Int8
-	LedgerID        pgtype.Int8
-	Uuid            string
+	Amount            pgtype.Int8
+	Date              pgtype.Date
+	Description       pgtype.Text
+	Metadata          []byte
+	Uuid              string
+	CreditAccountUuid pgtype.Text
+	DebitAccountUuid  pgtype.Text
+	LedgerUuid        pgtype.Text
 }
 
 // UpdateTransaction
 //
+//	     with credit_account as (select id from accounts where accounts.uuid = $6::text),
+//	          debit_account as (select id from accounts where accounts.uuid = $7::text),
+//	          ledger as (select id from ledgers where ledgers.uuid = $8::text)
 //	   update transactions
 //	      set amount            = coalesce($1::bigint, amount),
 //	          date              = coalesce($2, date),
 //	          description       = coalesce($3, description),
 //	          metadata          = coalesce($4, metadata),
-//	          credit_account_id = coalesce($5, credit_account_id),
-//	          debit_account_id  = coalesce($6, debit_account_id),
-//	          ledger_id         = coalesce($7, ledger_id)
-//	    where uuid = $8
+//	          credit_account_id = coalesce((select id from credit_account), credit_account_id),
+//	          debit_account_id  = coalesce((select id from debit_account), debit_account_id),
+//	          ledger_id         = coalesce((select id from ledger), ledger_id)
+//	    where transactions.uuid = $5
 //	returning id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (*Transaction, error) {
 	row := q.db.QueryRow(ctx, updateTransaction,
@@ -241,10 +253,10 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		arg.Date,
 		arg.Description,
 		arg.Metadata,
-		arg.CreditAccountID,
-		arg.DebitAccountID,
-		arg.LedgerID,
 		arg.Uuid,
+		arg.CreditAccountUuid,
+		arg.DebitAccountUuid,
+		arg.LedgerUuid,
 	)
 	var i Transaction
 	err := row.Scan(

@@ -5,15 +5,18 @@ select *
  limit 1;
 
 -- name: UpdateTransaction :one
+     with credit_account as (select id from accounts where accounts.uuid = sqlc.narg('credit_account_uuid')::text),
+          debit_account as (select id from accounts where accounts.uuid = sqlc.narg('debit_account_uuid')::text),
+          ledger as (select id from ledgers where ledgers.uuid = sqlc.narg('ledger_uuid')::text)
    update transactions
       set amount            = coalesce(sqlc.narg('amount')::bigint, amount),
           date              = coalesce(sqlc.narg('date'), date),
           description       = coalesce(sqlc.narg('description'), description),
           metadata          = coalesce(sqlc.narg('metadata'), metadata),
-          credit_account_id = coalesce(sqlc.narg('credit_account_id'), credit_account_id),
-          debit_account_id  = coalesce(sqlc.narg('debit_account_id'), debit_account_id),
-          ledger_id         = coalesce(sqlc.narg('ledger_id'), ledger_id)
-    where uuid = sqlc.arg('uuid')
+          credit_account_id = coalesce((select id from credit_account), credit_account_id),
+          debit_account_id  = coalesce((select id from debit_account), debit_account_id),
+          ledger_id         = coalesce((select id from ledger), ledger_id)
+    where transactions.uuid = sqlc.arg('uuid')
 returning *;
 
 
@@ -44,13 +47,6 @@ returning *;
            (SELECT id FROM ledger_id))
 RETURNING *;
 
--- -- name: ListAccounts :many
---   with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
--- select uuid, name, type, metadata
---   from accounts
---  where ledger_id = (select id from ledger)
---    and metadata @> sqlc.arg(metadata)::jsonb;
-
 -- name: ListTransactions :many
   with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
 select uuid, amount, date, description, metadata
@@ -58,3 +54,8 @@ select uuid, amount, date, description, metadata
  where ledger_id = (select id from ledger)
    and metadata @> sqlc.arg(metadata)::jsonb;
 
+
+-- name: DeleteTransaction :exec
+delete
+  from transactions
+ where uuid = $1;
