@@ -40,13 +40,13 @@ RETURNING id, uuid, created_at, updated_at, amount, date, description, metadata,
 `
 
 type CreateTransactionParams struct {
-	Amount            int64
-	Date              pgtype.Date
-	Description       string
-	Metadata          []byte
-	CreditAccountUuid string
-	DebitAccountUuid  string
-	LedgerUuid        string
+	Amount            int64       `json:"amount"`
+	Date              pgtype.Date `json:"date"`
+	Description       string      `json:"description"`
+	Metadata          []byte      `json:"metadata"`
+	CreditAccountUuid string      `json:"creditAccountUuid"`
+	DebitAccountUuid  string      `json:"debitAccountUuid"`
+	LedgerUuid        string      `json:"ledgerUuid"`
 }
 
 // CreateTransaction
@@ -106,14 +106,14 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 const deleteTransaction = `-- name: DeleteTransaction :exec
 delete
   from transactions
- where uuid = $1
+ where uuid = $1::text
 `
 
 // DeleteTransaction
 //
 //	delete
 //	  from transactions
-//	 where uuid = $1
+//	 where uuid = $1::text
 func (q *Queries) DeleteTransaction(ctx context.Context, uuid string) error {
 	_, err := q.db.Exec(ctx, deleteTransaction, uuid)
 	return err
@@ -122,7 +122,7 @@ func (q *Queries) DeleteTransaction(ctx context.Context, uuid string) error {
 const getTransaction = `-- name: GetTransaction :one
 select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
   from transactions
- where id = $1
+ where uuid = $1::text
  limit 1
 `
 
@@ -130,10 +130,10 @@ select id, uuid, created_at, updated_at, amount, date, description, metadata, cr
 //
 //	select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 //	  from transactions
-//	 where id = $1
+//	 where uuid = $1::text
 //	 limit 1
-func (q *Queries) GetTransaction(ctx context.Context, id int64) (*Transaction, error) {
-	row := q.db.QueryRow(ctx, getTransaction, id)
+func (q *Queries) GetTransaction(ctx context.Context, uuid string) (*Transaction, error) {
+	row := q.db.QueryRow(ctx, getTransaction, uuid)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -151,36 +151,74 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (*Transaction, e
 	return &i, err
 }
 
-const listTransactions = `-- name: ListTransactions :many
-  with ledger as (select id from ledgers where uuid = $2::text)
-select uuid, amount, date, description, metadata
+const getTransactionsCount = `-- name: GetTransactionsCount :one
+  with ledger as (select ledgers.id from ledgers where ledgers.uuid = $2::text)
+select count(*)
   from transactions
  where ledger_id = (select id from ledger)
    and metadata @> $1::jsonb
 `
 
+type GetTransactionsCountParams struct {
+	Metadata   []byte `json:"metadata"`
+	LedgerUuid string `json:"ledgerUuid"`
+}
+
+// GetTransactionsCount
+//
+//	  with ledger as (select ledgers.id from ledgers where ledgers.uuid = $2::text)
+//	select count(*)
+//	  from transactions
+//	 where ledger_id = (select id from ledger)
+//	   and metadata @> $1::jsonb
+func (q *Queries) GetTransactionsCount(ctx context.Context, arg GetTransactionsCountParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getTransactionsCount, arg.Metadata, arg.LedgerUuid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const listTransactions = `-- name: ListTransactions :many
+  with ledger as (select ledgers.id from ledgers where ledgers.uuid = $4::text)
+select uuid, amount, date, description, metadata
+  from transactions
+ where ledger_id = (select id from ledger)
+   and metadata @> $1::jsonb
+ order by created_at desc
+ limit $3 offset $2
+`
+
 type ListTransactionsParams struct {
-	Metadata   []byte
-	LedgerUuid string
+	Metadata   []byte `json:"metadata"`
+	Offset     int32  `json:"offset"`
+	Limit      int32  `json:"limit"`
+	LedgerUuid string `json:"ledgerUuid"`
 }
 
 type ListTransactionsRow struct {
-	Uuid        string
-	Amount      int64
-	Date        pgtype.Date
-	Description pgtype.Text
-	Metadata    []byte
+	Uuid        string      `json:"uuid"`
+	Amount      int64       `json:"amount"`
+	Date        pgtype.Date `json:"date"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // ListTransactions
 //
-//	  with ledger as (select id from ledgers where uuid = $2::text)
+//	  with ledger as (select ledgers.id from ledgers where ledgers.uuid = $4::text)
 //	select uuid, amount, date, description, metadata
 //	  from transactions
 //	 where ledger_id = (select id from ledger)
 //	   and metadata @> $1::jsonb
+//	 order by created_at desc
+//	 limit $3 offset $2
 func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]*ListTransactionsRow, error) {
-	rows, err := q.db.Query(ctx, listTransactions, arg.Metadata, arg.LedgerUuid)
+	rows, err := q.db.Query(ctx, listTransactions,
+		arg.Metadata,
+		arg.Offset,
+		arg.Limit,
+		arg.LedgerUuid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -222,14 +260,14 @@ returning id, uuid, created_at, updated_at, amount, date, description, metadata,
 `
 
 type UpdateTransactionParams struct {
-	Amount            pgtype.Int8
-	Date              pgtype.Date
-	Description       pgtype.Text
-	Metadata          []byte
-	Uuid              string
-	CreditAccountUuid pgtype.Text
-	DebitAccountUuid  pgtype.Text
-	LedgerUuid        pgtype.Text
+	Amount            pgtype.Int8 `json:"amount"`
+	Date              pgtype.Date `json:"date"`
+	Description       pgtype.Text `json:"description"`
+	Metadata          []byte      `json:"metadata"`
+	Uuid              string      `json:"uuid"`
+	CreditAccountUuid pgtype.Text `json:"creditAccountUuid"`
+	DebitAccountUuid  pgtype.Text `json:"debitAccountUuid"`
+	LedgerUuid        pgtype.Text `json:"ledgerUuid"`
 }
 
 // UpdateTransaction

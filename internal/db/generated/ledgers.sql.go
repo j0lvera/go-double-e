@@ -18,9 +18,9 @@ returning id, uuid, created_at, updated_at, name, description, metadata
 `
 
 type CreateLedgerParams struct {
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // CreateLedger
@@ -78,10 +78,10 @@ select uuid, name, description, metadata
 `
 
 type ListLedgersRow struct {
-	Uuid        string
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Uuid        string      `json:"uuid"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // ListLedgers
@@ -124,10 +124,10 @@ returning id, uuid, created_at, updated_at, name, description, metadata
 `
 
 type UpdateLedgerParams struct {
-	Uuid        string
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Uuid        string      `json:"uuid"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // UpdateLedger

@@ -2,11 +2,13 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/go-playground/form/v4"
 	"github.com/go-playground/validator/v10"
 	dbGen "github.com/j0lvera/go-double-e/internal/db/generated"
 	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -131,7 +133,25 @@ func (s *Server) HandleCreateTransaction(w http.ResponseWriter, r *http.Request)
 	)
 }
 
+type ListTransactionsQuery struct {
+	LedgerUUID string `form:"ledger_uuid" json:"ledger_uuid" validate:"required"`
+	Metadata   string `form:"metadata" json:"metadata"`
+	Limit      int32  `form:"limit" json:"limit"`
+	Offset     int32  `form:"offset" json:"offset"`
+}
+
+type PaginatedResponse[T any] struct {
+	Data       []T `json:"data"`
+	Pagination struct {
+		Total  int32 `json:"total"`
+		Limit  int32 `json:"limit"`
+		Offset int32 `json:"offset"`
+	} `json:"pagination"`
+}
+
 func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) {
+	decoder := form.NewDecoder()
+
 	startReqTime := time.Now()
 	slog.Debug("transaction.list.start",
 		"method", r.Method,
@@ -139,14 +159,36 @@ func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) 
 		"remote_add", r.RemoteAddr,
 	)
 
-	queryValues := r.URL.Query()
-	ledgerUUID := queryValues.Get("ledger_uuid")
-	if ledgerUUID == "" {
-		slog.Info("ledger_uuid is required", "query_params", queryValues)
+	// default values
+	query := ListTransactionsQuery{
+		Limit:  30,
+		Offset: 0,
+	}
+
+	// decode the query params
+	if err := decoder.Decode(&query, r.URL.Query()); err != nil {
+		slog.Info("unable to decode query params", "error", err)
+		slog.Debug("query params decoding", "query_params", r.URL.Query())
 		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
 		return
 	}
 
+	slog.Debug("query params decoding", "query_params", r.URL.Query(), "query", query)
+
+	// validate the query params
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	if err := validate.Struct(query); err != nil {
+		validationErrors := ParseValidationErrors(err)
+		res := map[string][]ValidationError{
+			"errors": validationErrors,
+		}
+		slog.Info("unable to validate query params", "error", err)
+		slog.Debug("query params validation", "query_params", r.URL.Query(), "validation_errors", res)
+		WriteError(w, res, http.StatusBadRequest)
+		return
+	}
+
+	// parse metadata query param e.g., metadata.user_id=25
 	metadataBytes, err := parseMetadataParam(r)
 	if err != nil {
 		slog.Info("unable to parse metadata query param", "error", err)
@@ -155,8 +197,10 @@ func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	listTransactionsParams := dbGen.ListTransactionsParams{
-		LedgerUuid: ledgerUUID,
+		LedgerUuid: query.LedgerUUID,
 		Metadata:   metadataBytes,
+		Limit:      query.Limit,
+		Offset:     query.Offset,
 	}
 
 	startQueryTime := time.Now()
@@ -168,6 +212,20 @@ func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) 
 
 		deadline, _ := r.Context().Deadline()
 		slog.Debug("transaction listing", "query_timeout", deadline)
+
+		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	totalCount, err := s.client.Queries.GetTransactionsCount(r.Context(), dbGen.GetTransactionsCountParams{
+		LedgerUuid: query.LedgerUUID,
+		Metadata:   metadataBytes,
+	})
+	if err != nil {
+		slog.Error("unable to get transactions count", "error", err)
+
+		deadline, _ := r.Context().Deadline()
+		slog.Debug("transaction count query", "query_params", listTransactionsParams, "query_timeout", deadline)
 
 		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
 		return
@@ -191,7 +249,20 @@ func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	res := NewResponse("OK", transactionsCount, "LIST", transactions)
+	paginatedResponse := PaginatedResponse[*dbGen.ListTransactionsRow]{
+		Data: transactions,
+		Pagination: struct {
+			Total  int32 `json:"total"`
+			Limit  int32 `json:"limit"`
+			Offset int32 `json:"offset"`
+		}{
+			Total:  int32(totalCount),
+			Limit:  query.Limit,
+			Offset: query.Offset,
+		},
+	}
+	w.Header().Set("X-Total-Count", strconv.FormatInt(totalCount, 10))
+	res := NewResponse("OK", transactionsCount, "LIST", paginatedResponse)
 	err = WriteResponse(w, http.StatusOK, res)
 	if err != nil {
 		slog.Error("unable to write response", "error", err)

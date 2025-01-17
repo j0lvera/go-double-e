@@ -1,7 +1,7 @@
 -- name: GetTransaction :one
 select *
   from transactions
- where id = $1
+ where uuid = sqlc.arg(uuid)::text
  limit 1;
 
 -- name: UpdateTransaction :one
@@ -48,14 +48,24 @@ returning *;
 RETURNING *;
 
 -- name: ListTransactions :many
-  with ledger as (select id from ledgers where uuid = sqlc.arg(ledger_uuid)::text)
+  with ledger as (select ledgers.id from ledgers where ledgers.uuid = sqlc.arg(ledger_uuid)::text)
 select uuid, amount, date, description, metadata
   from transactions
  where ledger_id = (select id from ledger)
-   and metadata @> sqlc.arg(metadata)::jsonb;
+   and metadata @> sqlc.arg(metadata)::jsonb
+ order by created_at desc
+ limit sqlc.arg('limit') offset sqlc.arg('offset');
 
 
 -- name: DeleteTransaction :exec
 delete
   from transactions
- where uuid = $1;
+ where uuid = sqlc.arg(uuid)::text;
+
+
+-- name: GetTransactionsCount :one
+  with ledger as (select ledgers.id from ledgers where ledgers.uuid = sqlc.arg(ledger_uuid)::text)
+select count(*)
+  from transactions
+ where ledger_id = (select id from ledger)
+   and metadata @> sqlc.arg(metadata)::jsonb;

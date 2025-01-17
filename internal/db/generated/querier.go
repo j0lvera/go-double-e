@@ -57,7 +57,7 @@ type Querier interface {
 	//
 	//  delete
 	//    from transactions
-	//   where uuid = $1
+	//   where uuid = $1::text
 	DeleteTransaction(ctx context.Context, uuid string) error
 	//GetAccount
 	//
@@ -77,9 +77,17 @@ type Querier interface {
 	//
 	//  select id, uuid, created_at, updated_at, amount, date, description, metadata, credit_account_id, debit_account_id, ledger_id
 	//    from transactions
-	//   where id = $1
+	//   where uuid = $1::text
 	//   limit 1
-	GetTransaction(ctx context.Context, id int64) (*Transaction, error)
+	GetTransaction(ctx context.Context, uuid string) (*Transaction, error)
+	//GetTransactionsCount
+	//
+	//    with ledger as (select ledgers.id from ledgers where ledgers.uuid = $2::text)
+	//  select count(*)
+	//    from transactions
+	//   where ledger_id = (select id from ledger)
+	//     and metadata @> $1::jsonb
+	GetTransactionsCount(ctx context.Context, arg GetTransactionsCountParams) (int64, error)
 	//ListAccounts
 	//
 	//    with ledger as (select id from ledgers where uuid = $2::text)
@@ -96,11 +104,13 @@ type Querier interface {
 	ListLedgers(ctx context.Context, dollar_1 []byte) ([]*ListLedgersRow, error)
 	//ListTransactions
 	//
-	//    with ledger as (select id from ledgers where uuid = $2::text)
+	//    with ledger as (select ledgers.id from ledgers where ledgers.uuid = $4::text)
 	//  select uuid, amount, date, description, metadata
 	//    from transactions
 	//   where ledger_id = (select id from ledger)
 	//     and metadata @> $1::jsonb
+	//   order by created_at desc
+	//   limit $3 offset $2
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]*ListTransactionsRow, error)
 	//UpdateAccount
 	//

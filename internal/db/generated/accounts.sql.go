@@ -20,10 +20,10 @@ returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 `
 
 type CreateAccountParams struct {
-	Name       string
-	Type       AccountType
-	Metadata   []byte
-	LedgerUuid string
+	Name       string      `json:"name"`
+	Type       AccountType `json:"type"`
+	Metadata   []byte      `json:"metadata"`
+	LedgerUuid string      `json:"ledgerUuid"`
 }
 
 // CreateAccount
@@ -94,15 +94,15 @@ select uuid, name, type, metadata
 `
 
 type ListAccountsParams struct {
-	Metadata   []byte
-	LedgerUuid string
+	Metadata   []byte `json:"metadata"`
+	LedgerUuid string `json:"ledgerUuid"`
 }
 
 type ListAccountsRow struct {
-	Uuid     string
-	Name     string
-	Type     AccountType
-	Metadata []byte
+	Uuid     string      `json:"uuid"`
+	Name     string      `json:"name"`
+	Type     AccountType `json:"type"`
+	Metadata []byte      `json:"metadata"`
 }
 
 // ListAccounts
@@ -147,10 +147,10 @@ returning id, uuid, created_at, updated_at, name, type, metadata, ledger_id
 `
 
 type UpdateAccountParams struct {
-	Uuid     string
-	Name     string
-	Type     AccountType
-	Metadata []byte
+	Uuid     string      `json:"uuid"`
+	Name     string      `json:"name"`
+	Type     AccountType `json:"type"`
+	Metadata []byte      `json:"metadata"`
 }
 
 // UpdateAccount
