@@ -110,3 +110,31 @@ func MapNonZeroFields[T any, U any](src *T, dest *U) {
 		}
 	}
 }
+
+// ptrValue returns the value of a pointer if
+// it is not nil, otherwise it returns the zero
+// value of the type and false.
+func ptrValue[T any](p *T) (v T, valid bool) {
+	if p == nil {
+		return v, false
+	}
+	return *p, true
+}
+
+// isEmptyJSON checks if a struct is empty by checking if all of its
+// fields are zero values.
+func isEmptyJSON(v interface{}) bool {
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	nonNilFields := 0
+	for i := 0; i < val.NumField(); i++ {
+		if !val.Field(i).IsZero() {
+			nonNilFields++
+		}
+	}
+
+	return nonNilFields == 0
+}

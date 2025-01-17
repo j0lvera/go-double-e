@@ -18,9 +18,9 @@ returning id, uuid, created_at, updated_at, name, description, metadata
 `
 
 type CreateLedgerParams struct {
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // CreateLedger
@@ -28,7 +28,7 @@ type CreateLedgerParams struct {
 //	   insert into ledgers (name, description, metadata)
 //	   values ($1, $2, $3)
 //	returning id, uuid, created_at, updated_at, name, description, metadata
-func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error) {
+func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (*Ledger, error) {
 	row := q.db.QueryRow(ctx, createLedger, arg.Name, arg.Description, arg.Metadata)
 	var i Ledger
 	err := row.Scan(
@@ -40,7 +40,7 @@ func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (Led
 		&i.Description,
 		&i.Metadata,
 	)
-	return i, err
+	return &i, err
 }
 
 const getLedger = `-- name: GetLedger :one
@@ -56,7 +56,7 @@ select id, uuid, created_at, updated_at, name, description, metadata
 //	  from ledgers
 //	 where uuid = $1
 //	 limit 1
-func (q *Queries) GetLedger(ctx context.Context, uuid string) (Ledger, error) {
+func (q *Queries) GetLedger(ctx context.Context, uuid string) (*Ledger, error) {
 	row := q.db.QueryRow(ctx, getLedger, uuid)
 	var i Ledger
 	err := row.Scan(
@@ -68,7 +68,7 @@ func (q *Queries) GetLedger(ctx context.Context, uuid string) (Ledger, error) {
 		&i.Description,
 		&i.Metadata,
 	)
-	return i, err
+	return &i, err
 }
 
 const listLedgers = `-- name: ListLedgers :many
@@ -78,10 +78,10 @@ select uuid, name, description, metadata
 `
 
 type ListLedgersRow struct {
-	Uuid        string
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Uuid        string      `json:"uuid"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // ListLedgers
@@ -89,13 +89,13 @@ type ListLedgersRow struct {
 //	select uuid, name, description, metadata
 //	  from ledgers
 //	 where metadata @> $1::jsonb
-func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]ListLedgersRow, error) {
+func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]*ListLedgersRow, error) {
 	rows, err := q.db.Query(ctx, listLedgers, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLedgersRow
+	var items []*ListLedgersRow
 	for rows.Next() {
 		var i ListLedgersRow
 		if err := rows.Scan(
@@ -106,7 +106,7 @@ func (q *Queries) ListLedgers(ctx context.Context, dollar_1 []byte) ([]ListLedge
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -124,10 +124,10 @@ returning id, uuid, created_at, updated_at, name, description, metadata
 `
 
 type UpdateLedgerParams struct {
-	Uuid        string
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	Uuid        string      `json:"uuid"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 // UpdateLedger
@@ -138,7 +138,7 @@ type UpdateLedgerParams struct {
 //	          metadata    = coalesce($4, metadata)
 //	    where uuid = $1
 //	returning id, uuid, created_at, updated_at, name, description, metadata
-func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error) {
+func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (*Ledger, error) {
 	row := q.db.QueryRow(ctx, updateLedger,
 		arg.Uuid,
 		arg.Name,
@@ -155,5 +155,5 @@ func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Led
 		&i.Description,
 		&i.Metadata,
 	)
-	return i, err
+	return &i, err
 }

@@ -34,8 +34,8 @@ func (e *AccountType) Scan(src interface{}) error {
 }
 
 type NullAccountType struct {
-	AccountType AccountType
-	Valid       bool // Valid is true if AccountType is not NULL
+	AccountType AccountType `json:"accountType"`
+	Valid       bool        `json:"valid"` // Valid is true if AccountType is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -76,8 +76,8 @@ func (e *TransactionStatus) Scan(src interface{}) error {
 }
 
 type NullTransactionStatus struct {
-	TransactionStatus TransactionStatus
-	Valid             bool // Valid is true if TransactionStatus is not NULL
+	TransactionStatus TransactionStatus `json:"transactionStatus"`
+	Valid             bool              `json:"valid"` // Valid is true if TransactionStatus is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -99,36 +99,36 @@ func (ns NullTransactionStatus) Value() (driver.Value, error) {
 }
 
 type Account struct {
-	ID        int64
-	Uuid      string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	Name      string
-	Type      AccountType
-	Metadata  []byte
-	LedgerID  int64
+	ID        int64              `json:"id"`
+	Uuid      string             `json:"uuid"`
+	CreatedAt pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `json:"updatedAt"`
+	Name      string             `json:"name"`
+	Type      AccountType        `json:"type"`
+	Metadata  []byte             `json:"metadata"`
+	LedgerID  int64              `json:"ledgerId"`
 }
 
 type Ledger struct {
-	ID          int64
-	Uuid        string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
-	Name        string
-	Description pgtype.Text
-	Metadata    []byte
+	ID          int64              `json:"id"`
+	Uuid        string             `json:"uuid"`
+	CreatedAt   pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `json:"updatedAt"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	Metadata    []byte             `json:"metadata"`
 }
 
 type Transaction struct {
-	ID              int64
-	Uuid            string
-	CreatedAt       pgtype.Timestamptz
-	UpdatedAt       pgtype.Timestamptz
-	Amount          int64
-	Date            pgtype.Date
-	Description     pgtype.Text
-	Metadata        []byte
-	CreditAccountID int64
-	DebitAccountID  int64
-	LedgerID        int64
+	ID              int64              `json:"id"`
+	Uuid            string             `json:"uuid"`
+	CreatedAt       pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt       pgtype.Timestamptz `json:"updatedAt"`
+	Amount          int64              `json:"amount"`
+	Date            pgtype.Date        `json:"date"`
+	Description     pgtype.Text        `json:"description"`
+	Metadata        []byte             `json:"metadata"`
+	CreditAccountID int64              `json:"creditAccountId"`
+	DebitAccountID  int64              `json:"debitAccountId"`
+	LedgerID        int64              `json:"ledgerId"`
 }
