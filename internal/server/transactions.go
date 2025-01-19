@@ -1,16 +1,55 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/go-playground/form/v4"
 	"github.com/go-playground/validator/v10"
 	dbGen "github.com/j0lvera/go-double-e/internal/db/generated"
+	"github.com/j0lvera/opi/crud"
 	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 )
+
+type Lister struct {
+	queries *dbGen.Queries
+}
+
+type ListQuery struct {
+	LedgerUUID string `form:"ledger_uuid" json:"ledger_uuid" validate:"required"`
+	Metadata   string `form:"metadata" json:"metadata"`
+	crud.PaginatedQuery
+}
+
+func (q ListQuery) GetPagination() crud.PaginatedQuery {
+	return q.PaginatedQuery
+}
+
+func (l *Lister) List(ctx context.Context, query ListQuery, offset int, limit int) ([]*dbGen.ListTransactionsRow, error) {
+	params := dbGen.ListTransactionsParams{
+		Limit:      int32(limit),
+		Offset:     int32(offset),
+		Metadata:   []byte(query.Metadata),
+		LedgerUuid: query.LedgerUUID,
+	}
+	return l.queries.ListTransactions(ctx, params)
+}
+
+func (l *Lister) Count(ctx context.Context, query ListQuery) (int64, error) {
+	params := dbGen.GetTransactionsCountParams{
+		LedgerUuid: query.LedgerUUID,
+		Metadata:   []byte(query.Metadata),
+	}
+	return l.queries.GetTransactionsCount(ctx, params)
+}
+
+func NewListHandler(queries *dbGen.Queries) *crud.ListHandler[*dbGen.ListTransactionsRow, ListQuery] {
+	return crud.NewListHandler[*dbGen.ListTransactionsRow, ListQuery](
+		&Lister{queries: queries},
+		&crud.DefaultResponseWriter{},
+	)
+}
 
 type CreateTransactionRequest struct {
 	Amount            int64                  `json:"amount" validate:"required"`
@@ -129,151 +168,6 @@ func (s *Server) HandleCreateTransaction(w http.ResponseWriter, r *http.Request)
 	slog.Info("transaction created", "uuid", transaction.Uuid, "description", transaction.Description)
 	slog.Debug("transaction.create.complete",
 		"transaction_uuid", transaction.Uuid,
-		"duration", time.Since(startReqTime),
-	)
-}
-
-type ListTransactionsQuery struct {
-	LedgerUUID string `form:"ledger_uuid" json:"ledger_uuid" validate:"required"`
-	Metadata   string `form:"metadata" json:"metadata"`
-	Limit      int32  `form:"limit" json:"limit"`
-	Offset     int32  `form:"offset" json:"offset"`
-}
-
-type PaginatedResponse[T any] struct {
-	Data       []T `json:"data"`
-	Pagination struct {
-		Total  int32 `json:"total"`
-		Limit  int32 `json:"limit"`
-		Offset int32 `json:"offset"`
-	} `json:"pagination"`
-}
-
-func (s *Server) HandleListTransactions(w http.ResponseWriter, r *http.Request) {
-	decoder := form.NewDecoder()
-
-	startReqTime := time.Now()
-	slog.Debug("transaction.list.start",
-		"method", r.Method,
-		"path", r.URL.Path,
-		"remote_add", r.RemoteAddr,
-	)
-
-	// default values
-	query := ListTransactionsQuery{
-		Limit:  30,
-		Offset: 0,
-	}
-
-	// decode the query params
-	if err := decoder.Decode(&query, r.URL.Query()); err != nil {
-		slog.Info("unable to decode query params", "error", err)
-		slog.Debug("query params decoding", "query_params", r.URL.Query())
-		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
-		return
-	}
-
-	slog.Debug("query params decoding", "query_params", r.URL.Query(), "query", query)
-
-	// validate the query params
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	if err := validate.Struct(query); err != nil {
-		validationErrors := ParseValidationErrors(err)
-		res := map[string][]ValidationError{
-			"errors": validationErrors,
-		}
-		slog.Info("unable to validate query params", "error", err)
-		slog.Debug("query params validation", "query_params", r.URL.Query(), "validation_errors", res)
-		WriteError(w, res, http.StatusBadRequest)
-		return
-	}
-
-	// parse metadata query param e.g., metadata.user_id=25
-	metadataBytes, err := parseMetadataParam(r)
-	if err != nil {
-		slog.Info("unable to parse metadata query param", "error", err)
-		WriteError(w, ErrInvalidRequest, http.StatusBadRequest)
-		return
-	}
-
-	listTransactionsParams := dbGen.ListTransactionsParams{
-		LedgerUuid: query.LedgerUUID,
-		Metadata:   metadataBytes,
-		Limit:      query.Limit,
-		Offset:     query.Offset,
-	}
-
-	startQueryTime := time.Now()
-
-	// get the transactions from the database
-	transactions, err := s.client.Queries.ListTransactions(r.Context(), listTransactionsParams)
-	if err != nil {
-		slog.Error("unable to list transactions", "error", err)
-
-		deadline, _ := r.Context().Deadline()
-		slog.Debug("transaction listing", "query_timeout", deadline)
-
-		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
-		return
-	}
-
-	totalCount, err := s.client.Queries.GetTransactionsCount(r.Context(), dbGen.GetTransactionsCountParams{
-		LedgerUuid: query.LedgerUUID,
-		Metadata:   metadataBytes,
-	})
-	if err != nil {
-		slog.Error("unable to get transactions count", "error", err)
-
-		deadline, _ := r.Context().Deadline()
-		slog.Debug("transaction count query", "query_params", listTransactionsParams, "query_timeout", deadline)
-
-		WriteError(w, ErrInternalServerError, http.StatusInternalServerError)
-		return
-	}
-
-	transactionsCount := len(transactions)
-
-	slog.Debug("transaction listing",
-		"transactions_count", transactionsCount,
-		"query_time", time.Since(startQueryTime),
-	)
-
-	if transactionsCount == 0 {
-		slog.Info("no transactions found", "metadata_filter", string(metadataBytes))
-		slog.Debug("transaction.list.complete",
-			"transactions_count", transactionsCount,
-			"duration", time.Since(startReqTime),
-		)
-
-		WriteError(w, ErrNotFound, http.StatusNotFound)
-		return
-	}
-
-	paginatedResponse := PaginatedResponse[*dbGen.ListTransactionsRow]{
-		Data: transactions,
-		Pagination: struct {
-			Total  int32 `json:"total"`
-			Limit  int32 `json:"limit"`
-			Offset int32 `json:"offset"`
-		}{
-			Total:  int32(totalCount),
-			Limit:  query.Limit,
-			Offset: query.Offset,
-		},
-	}
-	w.Header().Set("X-Total-Count", strconv.FormatInt(totalCount, 10))
-	res := NewResponse("OK", transactionsCount, "LIST", paginatedResponse)
-	err = WriteResponse(w, http.StatusOK, res)
-	if err != nil {
-		slog.Error("unable to write response", "error", err)
-		slog.Debug("response writing", "response", res)
-		return
-	}
-
-	slog.Info("transactions listed", "count", transactionsCount)
-	slog.Debug(
-		"transaction.list.complete",
-		"transactions_count", transactionsCount,
 		"duration", time.Since(startReqTime),
 	)
 }
