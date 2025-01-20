@@ -180,7 +180,11 @@ func (q *Queries) GetTransactionsCount(ctx context.Context, arg GetTransactionsC
 
 const listTransactions = `-- name: ListTransactions :many
   with ledger as (select ledgers.id from ledgers where ledgers.uuid = $4::text)
-select uuid, amount, date, description, metadata
+select uuid,
+       amount,
+       date,
+       description,
+       metadata #>> '{}' AS metadata
   from transactions
  where ledger_id = (select id from ledger)
    and metadata @> $1::jsonb
@@ -200,13 +204,17 @@ type ListTransactionsRow struct {
 	Amount      int64       `json:"amount"`
 	Date        pgtype.Date `json:"date"`
 	Description pgtype.Text `json:"description"`
-	Metadata    []byte      `json:"metadata"`
+	Metadata    interface{} `json:"metadata"`
 }
 
 // ListTransactions
 //
 //	  with ledger as (select ledgers.id from ledgers where ledgers.uuid = $4::text)
-//	select uuid, amount, date, description, metadata
+//	select uuid,
+//	       amount,
+//	       date,
+//	       description,
+//	       metadata #>> '{}' AS metadata
 //	  from transactions
 //	 where ledger_id = (select id from ledger)
 //	   and metadata @> $1::jsonb

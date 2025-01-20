@@ -49,7 +49,11 @@ RETURNING *;
 
 -- name: ListTransactions :many
   with ledger as (select ledgers.id from ledgers where ledgers.uuid = sqlc.arg(ledger_uuid)::text)
-select uuid, amount, date, description, metadata
+select uuid,
+       amount,
+       date,
+       description,
+       metadata #>> '{}' AS metadata
   from transactions
  where ledger_id = (select id from ledger)
    and metadata @> sqlc.arg(metadata)::jsonb
